@@ -1,24 +1,94 @@
-# TODO: improve simple training script, introduce time-series analysis
+# TODO: introduce time-series analysis
 import os
+import re
+import pickle
 
+import numpy as np
 import keras
 from keras import backend
 from keras.models import Sequential
 from keras.layers import Dense, Flatten, Conv3D, MaxPooling3D, Dropout
-# from keras.utils import to_categorical
+from keras.utils.np_utils import to_categorical
+from sklearn.metrics import confusion_matrix, accuracy_score
+from scipy.stats import multivariate_normal
 
-batch_size = 100
-no_epochs = 30
+batch_size = 10
+no_epochs = 5
 learning_rate = 0.001
 validation_split = 0.2
 verbosity = 1
 
 
-def load_data():
-    return []
+def load_data(split):
+    files = os.listdir(os.path.join("analysis_files", "distributions"))
+    classes = []
+    for f in files:
+        if f.endswith(".npy"):
+            classes.append(f)
+
+    no_classes = len(classes)
+
+    # train, val, test
+    data = [[], [], []]
+    labels = [[], [], []]
+
+    for cls in classes:
+        cls_data = np.load(os.path.join("analysis_files", "distributions", cls))
+        length = cls_data.shape[0]
+        data[0].append(cls_data[:int(length * split[0])])
+        data[1].append(cls_data[int(length * split[0]):int(length * (split[1] + split[0]))])
+        data[2].append(cls_data[int(length * (split[1] + split[0])):])
+        for i in range(3):
+            labels[i].append(np.full((int(length * split[i]), 1), int(re.split('[_.]', cls)[1]) - 1))
+
+    data_merged = []
+    labels_merged = []
+
+    for i, d in enumerate(data):
+        data_merged.append(np.vstack(d))
+        labels_merged.append(np.vstack(labels[i]))
+
+    data_shuffled = []
+    labels_shuffled = []
+
+    for i, d in enumerate(data_merged):
+        indices = np.arange(d.shape[0])
+        np.random.shuffle(indices)
+        data_shuffled.append(d[indices])
+        labels_shuffled.append(labels_merged[i][indices])
+
+    categorical_labels = []
+
+    for lab in labels_shuffled:
+        categorical_labels.append(to_categorical(lab))
+
+    return data_shuffled, categorical_labels, no_classes
 
 
-def data_generator(files):
+def data_generator_sampling_on_the_fly(data, labels, seg, size, test_mode):
+    indices = np.arange(data.shape[0])
+    batch = []
+    while True:
+        if not test_mode:
+            np.random.shuffle(indices)
+        for i in indices:
+            batch.append(i)
+            if len(batch) == batch_size:
+                grids = []
+                for b in batch:
+                    dist = multivariate_normal(data[b][:3], np.diag(data[b][3:]))
+                    grid = np.zeros((size[0], size[1], size[2]))
+                    sample = dist.pdf(seg[:, 3:])
+                    for index, s in enumerate(seg[:, :3]):
+                        l, w, h = s
+                        grid[int(l), int(w), int(h)] = sample[index]
+                    grids.append(np.expand_dims(grid, axis=3))
+                grids = np.array(grids)
+                yield grids, labels[batch]
+                batch = []
+
+
+def data_generator_w_sampling_on_the_fly(data, labels, seg, test_mode):
     while True:
         grids = []
         labels = []
@@ -26,8 +96,7 @@ def data_generator(files):
 
 def build_model(no_classes, sample_shape):
     model = Sequential()
-    model.add(
-        Conv3D(32, kernel_size=(3, 3, 3), activation='relu', input_shape=sample_shape))
+    model.add(Conv3D(32, kernel_size=(3, 3, 3), activation='relu', input_shape=sample_shape+(1,)))
     model.add(MaxPooling3D(pool_size=(2, 2, 2)))
     model.add(Dropout(0.5))
     model.add(Conv3D(64, kernel_size=(3, 3, 3), activation='relu'))
@@ -40,24 +109,70 @@ def build_model(no_classes, sample_shape):
     return model
 
 
-def training(model, data):
+def training(model, train_gen, val_gen, no_train_data, no_val_data, seg):
     model.compile(loss=keras.losses.categorical_crossentropy,
                   optimizer=keras.optimizers.Adam(lr=learning_rate),
                   metrics=['accuracy'])
 
-    history = model.fit(data["x_test"], data["y_test"],
-                        batch_size=batch_size,
-                        epochs=no_epochs,
-                        verbose=verbosity,
-                        validation_split=validation_split)
+    history = model.fit_generator(
+        train_gen,
+        steps_per_epoch=no_train_data // batch_size,
+        validation_data=val_gen,
+        validation_steps=no_val_data // batch_size,
+        epochs=no_epochs,
+        verbose=verbosity
+    )
 
-    return history
+    model.save(os.path.join("analysis_files", "models", "model_{}.h5".format(seg)))
+
+    return history, model
 
 
-def run(no_classes, sample_shape):
-    data = os.listdir(os.path.join("analysis_files", "samples"))
-    model = build_model(no_classes, sample_shape)
-    results = training(model, data)
+def test(test_gen, model, no_test_data):
+    prediction = model.predict_generator(
+        test_gen,
+        steps=no_test_data // batch_size
+    )
+    prediction = np.argmax(prediction, axis=1)
+    return prediction
+
+
+def train_with_sampling_on_the_fly(seg, seg_loaded):
+    (train_data, val_data, test_data), (train_label, val_label, test_label), no_classes = load_data((0.8, 0.1, 0.1))
+    print("Loaded Data.")
+
+    size = int(max(seg_loaded[:, 0]) + 1), int(max(seg_loaded[:, 1]) + 1), int(max(seg_loaded[:, 2]) + 1)
+
+    model = build_model(no_classes, size)
+    print("Build Model.")
+
+    training_generator = data_generator_sampling_on_the_fly(train_data, train_label, seg_loaded, size, False)
+    validation_generator = data_generator_sampling_on_the_fly(val_data, val_label, seg_loaded, size, False)
+    results, model = training(model,
+                              training_generator,
+                              validation_generator,
+                              train_data.shape[0],
+                              val_data.shape[0],
+                              seg)
+    print("Finished Training.")
+
+    test_generator = data_generator_sampling_on_the_fly(test_data, test_label, seg_loaded, size, True)
+    test_results = test(test_generator, model, test_data.shape[0])
+    test_label = np.argmax(test_label, axis=1)
+    prediction_results = np.stack((test_label, test_results), axis=-1)
+    conf_matrix = confusion_matrix(test_label, test_results)
+    print("Finished Testing.")
+
+    with open(os.path.join("analysis_files", "results", "history_{}".format(seg)), "wb") as results_file:
+        pickle.dump(results.history, results_file)
+
+    np.save(os.path.join("analysis_files", "results", "prediction_results_{}".format(seg)), prediction_results)
+    np.save(os.path.join("analysis_files", "results", "confusion_matrix_{}".format(seg)), conf_matrix)
+
     backend.clear_session()
 
-    return results
+    return accuracy_score(test_label, test_results)
+
+
+def train_without_sampling_on_the_fly():
+    data = os.listdir(os.path.join("analysis_files", "samples"))

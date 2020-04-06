@@ -1,10 +1,11 @@
 # TODO: create an experimental setup that samples data with different parameters, train on it and compare results
 import os
 import json
+import pickle
 
 import numpy as np
 
-from analysis import sampling
+from analysis import sampling, training
 
 
 def showcase_example():
@@ -55,5 +56,24 @@ def draw_samples():
                         sampling.draw_sample(obj, seg_loaded, path_cls, index)
 
 
-def run_training():
-    pass
+def run_training(sampling_on_the_fly, all_seg=True):
+    if all_seg:
+        if sampling_on_the_fly:
+            segmentations = os.listdir(os.path.join("analysis_files", "segmentations"))
+            segmentations.sort()
+            accuracies = {}
+            for seg in segmentations:
+                if seg.endswith(".npy"):
+                    seg_name = seg.split(".")[0]
+                    seg_loaded = np.load(os.path.join("analysis_files", "segmentations", seg))
+                    print("Started training for segmentation {}".format(seg_name))
+                    acc = training.train_with_sampling_on_the_fly(seg_name, seg_loaded)
+                    accuracies[seg.split(".")[0]] = acc
+                    print("#################################################################")
+            with open(os.path.join("analysis_files", "results", "accuracies.json"), "w+") as acc_file:
+                pickle.dump(accuracies, acc_file)
+            print("Finished process.")
+        else:
+            pass
+    else:
+        pass
