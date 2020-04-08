@@ -10,23 +10,23 @@ def create_distribution(mx, my, mz, var_x, var_y, var_z):
     return dist
 
 
-def create_distributions(dist_class, params, size, save=False):
-    dist = multivariate_normal(params[:, 0], np.diag(params[:, 1]))
-    distributions = dist.rvs(size=size, random_state=1)
-    distributions = np.array(distributions)
-    max_element = np.amax(distributions[:, 3:])
-    distributions[:, 3:] = np.where(distributions[:, 3:] <= 0,
-                                    random.uniform(0, max_element),
-                                    distributions[:, 3:])
+def create_distributions(file_path, dist_class, params, size, save=False):
+    # dist = multivariate_normal(params[:, 0], np.diag(params[:, 1]))
+    # distributions = dist.rvs(size=size, random_state=1)
+    # distributions = np.array(distributions)
+    # max_element = np.amax(distributions[:, 3:])
+    # distributions[:, 3:] = np.where(distributions[:, 3:] <= 0,
+    #                                 random.uniform(0, max_element),
+    #                                 distributions[:, 3:])
+    distributions = []
+    for i in range(size):
+        distributions.append([random.uniform(x[0], x[1]) if x[0] < x[1] else x[0] for x in params])
     if save:
-        np.save(os.path.join("analysis_files",
-                             "distributions",
-                             "class_{}".format(dist_class)),
-                distributions)
+        np.save(os.path.join(file_path, str(dist_class)), distributions)
     return distributions
 
 
-def cuboid_segmentation(env_name, env, cls, param, save=False):
+def cuboid_segmentation(file_path, env, cls, param, save=False):
     centers = []
     length_part, width_part, height_part = param
     length, width, height = env["params"]["length"], env["params"]["width"], env["params"]["height"]
@@ -46,11 +46,7 @@ def cuboid_segmentation(env_name, env, cls, param, save=False):
                 ])
     centers = np.array(centers)
     if save:
-        np.save(os.path.join("analysis_files",
-                             "segmentations",
-                             "env_{}_seg_{}".format(env_name, cls)
-                             ),
-                centers)
+        np.save(os.path.join(file_path, str(cls)), centers)
     return centers
 
 
@@ -64,14 +60,11 @@ def cylinder_segmentation(env, param, save=False):
         centers.append(0)
 
 
-def draw_sample(params, seg, path, index_obj):
+def draw_sample(params, seg, path, size):
     dist = multivariate_normal(params[:3], np.diag(params[3:]))
-    length = max(seg[:, 0]) + 1
-    width = max(seg[:, 1]) + 1
-    height = max(seg[:, 2]) + 1
-    grid = np.zeros((int(length), int(width), int(height)))
+    grid = np.zeros((size[0], size[1], size[2]))
     sample = dist.pdf(seg[:, 3:])
     for index, s in enumerate(seg[:, :3]):
         l, w, h = s
         grid[int(l), int(w), int(h)] = sample[index]
-    np.save(os.path.join(path, str(index_obj)), grid)
+    np.save(path, grid)
