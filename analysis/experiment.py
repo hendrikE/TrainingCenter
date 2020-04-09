@@ -95,7 +95,7 @@ def draw_samples(all_seg=True, all_dist=True, segmentation_sets=None, distributi
                                                                  distribution_set, distribution))
 
                     distribution_path = os.path.join(segmentation_path,
-                                                     "distribution".format(distribution.split(".")[0]))
+                                                     "distribution_{}".format(distribution.split(".")[0]))
                     os.mkdir(distribution_path)
 
                     for index, element in enumerate(distribution_elements):
