@@ -103,24 +103,52 @@ def draw_samples(all_seg=True, all_dist=True, segmentation_sets=None, distributi
                         sampling.draw_sample(element, segmentation_loaded, element_path, size)
 
 
-def run_training(sampling_on_the_fly, all_seg=True):
-    if all_seg:
-        if sampling_on_the_fly:
-            segmentations = os.listdir(os.path.join("analysis_files", "segmentations"))
-            segmentations.sort()
-            accuracies = {}
-            for seg in segmentations:
-                if seg.endswith(".npy"):
-                    seg_name = seg.split(".")[0]
-                    seg_loaded = np.load(os.path.join("analysis_files", "segmentations", seg))
-                    print("Started training for segmentation {}".format(seg_name))
-                    acc = training.train_with_sampling_on_the_fly(seg_name, seg_loaded)
-                    accuracies[seg.split(".")[0]] = acc
-                    print("#################################################################")
-            with open(os.path.join("analysis_files", "results", "accuracies.json"), "w+") as acc_file:
-                pickle.dump(accuracies, acc_file)
-            print("Finished process.")
-        else:
-            pass
-    else:
-        pass
+def run_training(sampling_on_the_fly, segmentation_sets=None, distribution_sets=None):
+    if segmentation_sets is None:
+        segmentation_sets = \
+            [x for x in os.listdir(os.path.join("analysis_files", "segmentations")) if not x.endswith(".json")]
+    if distribution_sets is None:
+        distribution_sets = \
+            [x for x in os.listdir(os.path.join("analysis_files", "distributions")) if not x.endswith(".json")]
+
+    for segmentation_set in segmentation_sets:
+        segmentation_set_results_path = os.path.join("analysis_files", "results", segmentation_set)
+        os.mkdir(segmentation_set_results_path)
+        segmentation_set_models_path = os.path.join("analysis_files", "models", segmentation_set)
+        os.mkdir(segmentation_set_models_path)
+        segmentations = os.listdir(os.path.join("analysis_files", "segmentations", segmentation_set))
+        segmentations.sort()
+
+        for distribution_set in distribution_sets:
+            distribution_set_results_path = os.path.join(segmentation_set_results_path, distribution_set)
+            os.mkdir(distribution_set_results_path)
+            distribution_set_models_path = os.path.join(segmentation_set_models_path, distribution_set)
+            os.mkdir(distribution_set_models_path)
+
+            if sampling_on_the_fly:
+                accuracies = {}
+                for segmentation in segmentations:
+                    segmentation_loaded = np.load(os.path.join("analysis_files", "segmentations",
+                                                               segmentation_set, segmentation))
+                    segmentation_results_path = os.path.join(distribution_set_results_path,
+                                                             "segmentation_{}".format(segmentation.split(".")[0]))
+                    os.mkdir(segmentation_results_path)
+                    segmentation_models_path = os.path.join(distribution_set_models_path,
+                                                            "segmentation_{}".format(segmentation.split(".")[0]))
+                    os.mkdir(segmentation_models_path)
+                    segmentation_name = segmentation.split(".")[0]
+                    accuracy = training.train_with_sampling_on_the_fly(
+                        segmentation_name,
+                        segmentation_loaded,
+                        segmentation_results_path,
+                        segmentation_models_path,
+                        distribution_set
+                    )
+                    accuracies[segmentation_name] = accuracy
+
+                with open(os.path.join(distribution_set_results_path, "accuracies.json"), "w+") as acc_file:
+                    pickle.dump(accuracies, acc_file)
+
+            else:
+                # TODO implement training with already drawn samples
+                pass
