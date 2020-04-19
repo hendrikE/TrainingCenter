@@ -1,6 +1,5 @@
 # TODO: introduce time-series analysis
 import os
-import re
 import pickle
 
 import numpy as np
@@ -8,16 +7,16 @@ import keras
 from keras import backend
 from keras.models import Sequential
 from keras.layers import Dense, Flatten, Conv3D, MaxPooling3D, Dropout
-from keras.utils import plot_model
+from keras.utils import plot_model, model_to_dot
 from keras.utils.np_utils import to_categorical
 from sklearn.metrics import confusion_matrix, accuracy_score
 from scipy.stats import multivariate_normal
 
 batch_size = 10
-no_epochs = 5
+no_epochs = 50
 learning_rate = 0.001
 validation_split = 0.2
-verbosity = 1
+verbosity = 2
 
 
 def load_data(split, distribution_set):
@@ -92,10 +91,10 @@ def data_generator_w_sampling_on_the_fly(data, labels, seg, test_mode):
 
 def build_model(no_classes, sample_shape):
     model = Sequential()
-    model.add(Conv3D(32, kernel_size=(3, 3, 3), activation='relu', input_shape=sample_shape+(1,)))
+    model.add(Conv3D(32, kernel_size=(3, 3, 3), activation='relu', padding="same", input_shape=sample_shape+(1,)))
     model.add(MaxPooling3D(pool_size=(2, 2, 2)))
     model.add(Dropout(0.5))
-    model.add(Conv3D(64, kernel_size=(3, 3, 3), activation='relu'))
+    model.add(Conv3D(64, kernel_size=(3, 3, 3), activation='relu', padding="same"))
     model.add(MaxPooling3D(pool_size=(2, 2, 2)))
     model.add(Dropout(0.5))
     model.add(Flatten())
@@ -131,10 +130,8 @@ def test(test_gen, model, no_test_data):
     return prediction
 
 
-def train_with_sampling_on_the_fly(segmentation,
-                                   segmentation_loaded,
-                                   segmentation_results_path,
-                                   segmentation_models_path,
+def train_with_sampling_on_the_fly(segmentation_loaded,
+                                   segmentation_path,
                                    distribution_set
                                    ):
 
@@ -163,13 +160,14 @@ def train_with_sampling_on_the_fly(segmentation,
     conf_matrix = confusion_matrix(test_label, test_results)
     print("Finished Testing.")
 
-    model.save(os.path.join(segmentation_models_path, "model.h5"))
-    plot_model(model, to_file=os.path.join(segmentation_models_path, "model.png"))
-
-    with open(os.path.join(segmentation_results_path, "history"), "wb") as results_file:
+    model.save(os.path.join(segmentation_path, "model.h5"))
+    plot_model(model, to_file=os.path.join(segmentation_path, "model.png"))
+    with open(os.path.join(segmentation_path, "model_graph"), "wb") as graph_file:
+        pickle.dump(model_to_dot(model), graph_file)
+    with open(os.path.join(segmentation_path, "history"), "wb") as results_file:
         pickle.dump(results.history, results_file)
-    np.save(os.path.join(segmentation_results_path, "prediction_results"), prediction_results)
-    np.save(os.path.join(segmentation_results_path, "confusion_matrix"), conf_matrix)
+    np.save(os.path.join(segmentation_path, "prediction_results"), prediction_results)
+    np.save(os.path.join(segmentation_path, "confusion_matrix"), conf_matrix)
 
     backend.clear_session()
 

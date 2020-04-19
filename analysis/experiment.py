@@ -15,56 +15,62 @@ def showcase_example():
     pass
 
 
-def create_class_distributions(all_el=True, elements=None):
-    if all_el:
-        elements = [x for x in os.listdir(os.path.join("analysis_files", "distributions")) if x.endswith(".json")]
-    for el in elements:
-        with open(os.path.join("analysis_files", "distributions", el), "r+") as class_file:
+def create_class_distributions(distribution_sets=None, size=500):
+    """
+    This function creates for existing distribution parameters different distribution classes
+    :param distribution_sets: Which distribution set to create classes for, leave None if all should be used
+    :param size: How many distributions per class
+    :return:
+    """
+    if distribution_sets is None:
+        distribution_sets = \
+            [x for x in os.listdir(os.path.join("analysis_files", "distributions")) if x.endswith(".json")]
+    for distribution_set in distribution_sets:
+        with open(os.path.join("analysis_files", "distributions", distribution_set), "r+") as class_file:
             classes = json.load(class_file)
-
-        file_path = os.path.join("analysis_files", "distributions", el.split(".")[0])
+        file_path = os.path.join("analysis_files", "distributions", distribution_set.split(".")[0])
         os.mkdir(file_path)
-
         for cls, val in classes.items():
-            sampling.create_distributions(file_path, cls, val, size=500, save=True)
+            sampling.create_distributions(file_path, cls, val, size=size, save=True)
 
 
 def create_time_series_distributions():
     pass
 
 
-def create_segmentations(env, all_el=True, elements=None):
-    if all_el:
-        elements = [x for x in os.listdir(os.path.join("analysis_files", "segmentations")) if x.endswith(".json")]
-
+def create_segmentations(env, segmentation_sets=None):
+    """
+    Create segmentations consisting of positions and coordinates based on existing parameters
+    :param env: The environment which should be segmented
+    :param segmentation_sets: Which segmentations to use
+    :return:
+    """
+    if segmentation_sets is None:
+        segmentation_sets = \
+            [x for x in os.listdir(os.path.join("analysis_files", "segmentations")) if x.endswith(".json")]
     with open(os.path.join("analysis_files", "environments", "{}.json".format(env)), "r+") as env_file:
         environment = json.load(env_file)
-
     if environment["basic_shape"] == "cuboid":
-        for el in elements:
+        for el in segmentation_sets:
             with open(os.path.join("analysis_files", "segmentations", el), "r+") as seg_file:
                 segmentations = json.load(seg_file)
-
             file_path = os.path.join("analysis_files", "segmentations", "{}_ENV_{}".format(el.split(".")[0], env))
             os.mkdir(file_path)
-
             for cls, val in segmentations.items():
                 sampling.cuboid_segmentation(file_path, environment, cls, val, save=True)
 
 
-def draw_samples(all_seg=True, all_dist=True, segmentation_sets=None, distribution_sets=None):
+def draw_samples(segmentation_sets=None, distribution_sets=None):
     """
     This function allows to draw samples from distributions based on given segmentations.
-    :param all_seg: True if all available segmentation sets should be used
-    :param all_dist: True if all available distribution sets should be used
-    :param segmentation_sets: A list of segmentation sets that should be used, if all_seg is set False
-    :param distribution_sets: A list of distribution sets that should be used, if all_dist is set False
+    :param segmentation_sets: A list of segmentation sets that should be used, leave None if all should be used
+    :param distribution_sets: A list of distribution sets that should be used, leave None if all should be used
     :return:
     """
-    if all_seg:
+    if segmentation_sets is None:
         segmentation_sets = \
             [x for x in os.listdir(os.path.join("analysis_files", "segmentations")) if not x.endswith(".json")]
-    if all_dist:
+    if distribution_sets is None:
         distribution_sets = \
             [x for x in os.listdir(os.path.join("analysis_files", "distributions")) if not x.endswith(".json")]
 
@@ -104,6 +110,14 @@ def draw_samples(all_seg=True, all_dist=True, segmentation_sets=None, distributi
 
 
 def run_training(sampling_on_the_fly, segmentation_sets=None, distribution_sets=None):
+    """
+    This function allows to train a model for contamination detection.
+    :param sampling_on_the_fly: True, if artificial data should be used and sampled during training (as opposed to
+    using already existing samples)
+    :param segmentation_sets: Which segmentation sets should be used, leave None if all should be used
+    :param distribution_sets: Which distribution sets should be used, leave None if all should be used
+    :return:
+    """
     if segmentation_sets is None:
         segmentation_sets = \
             [x for x in os.listdir(os.path.join("analysis_files", "segmentations")) if not x.endswith(".json")]
@@ -112,41 +126,32 @@ def run_training(sampling_on_the_fly, segmentation_sets=None, distribution_sets=
             [x for x in os.listdir(os.path.join("analysis_files", "distributions")) if not x.endswith(".json")]
 
     for segmentation_set in segmentation_sets:
-        segmentation_set_results_path = os.path.join("analysis_files", "results", segmentation_set)
-        os.mkdir(segmentation_set_results_path)
-        segmentation_set_models_path = os.path.join("analysis_files", "models", segmentation_set)
-        os.mkdir(segmentation_set_models_path)
+        segmentation_set_path = os.path.join("analysis_files", "results", segmentation_set)
+        os.mkdir(segmentation_set_path)
         segmentations = os.listdir(os.path.join("analysis_files", "segmentations", segmentation_set))
         segmentations.sort()
 
         for distribution_set in distribution_sets:
-            distribution_set_results_path = os.path.join(segmentation_set_results_path, distribution_set)
-            os.mkdir(distribution_set_results_path)
-            distribution_set_models_path = os.path.join(segmentation_set_models_path, distribution_set)
-            os.mkdir(distribution_set_models_path)
+            distribution_set_path = os.path.join(segmentation_set_path, distribution_set)
+            os.mkdir(distribution_set_path)
 
             if sampling_on_the_fly:
                 accuracies = {}
                 for segmentation in segmentations:
                     segmentation_loaded = np.load(os.path.join("analysis_files", "segmentations",
                                                                segmentation_set, segmentation))
-                    segmentation_results_path = os.path.join(distribution_set_results_path,
-                                                             "segmentation_{}".format(segmentation.split(".")[0]))
-                    os.mkdir(segmentation_results_path)
-                    segmentation_models_path = os.path.join(distribution_set_models_path,
-                                                            "segmentation_{}".format(segmentation.split(".")[0]))
-                    os.mkdir(segmentation_models_path)
+                    segmentation_path = os.path.join(distribution_set_path,
+                                                     "segmentation_{}".format(segmentation.split(".")[0]))
+                    os.mkdir(segmentation_path)
                     segmentation_name = segmentation.split(".")[0]
                     accuracy = training.train_with_sampling_on_the_fly(
-                        segmentation_name,
                         segmentation_loaded,
-                        segmentation_results_path,
-                        segmentation_models_path,
+                        segmentation_path,
                         distribution_set
                     )
                     accuracies[segmentation_name] = accuracy
 
-                with open(os.path.join(distribution_set_results_path, "accuracies.json"), "w+") as acc_file:
+                with open(os.path.join(distribution_set_path, "accuracies.json"), "wb") as acc_file:
                     pickle.dump(accuracies, acc_file)
 
             else:
