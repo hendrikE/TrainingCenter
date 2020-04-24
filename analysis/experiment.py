@@ -8,7 +8,7 @@ import pickle
 import numpy as np
 
 # parts of TrainingCenter
-from analysis import sampling, training
+from analysis import sampling, training, visualize
 
 
 def showcase_example():
@@ -32,6 +32,16 @@ def create_class_distributions(distribution_sets=None, size=500):
         os.mkdir(file_path)
         for cls, val in classes.items():
             sampling.create_distributions(file_path, cls, val, size=size, save=True)
+
+
+def show_distributions(env, distribution_sets=None):
+    if distribution_sets is None:
+        distribution_sets = \
+            [x for x in os.listdir(os.path.join("analysis_files", "distributions")) if x.endswith(".json")]
+    env_path = os.path.join("analysis_files", "environments", "{}.json".format(env))
+    for distribution_set in distribution_sets:
+        distribution_set_path = os.path.join("analysis_files", "distributions", "{}.json".format(distribution_set))
+        visualize.visualize_distributions(env_path, distribution_set_path)
 
 
 def create_time_series_distributions():
@@ -58,6 +68,10 @@ def create_segmentations(env, segmentation_sets=None):
             os.mkdir(file_path)
             for cls, val in segmentations.items():
                 sampling.cuboid_segmentation(file_path, environment, cls, val, save=True)
+
+
+def show_segmentation():
+    pass
 
 
 def draw_samples(segmentation_sets=None, distribution_sets=None):
@@ -109,6 +123,14 @@ def draw_samples(segmentation_sets=None, distribution_sets=None):
                         sampling.draw_sample(element, segmentation_loaded, element_path, size)
 
 
+def show_overlay():
+    pass
+
+
+def show_samples():
+    pass
+
+
 def run_training(sampling_on_the_fly, segmentation_sets=None, distribution_sets=None):
     """
     This function allows to train a model for contamination detection.
@@ -157,3 +179,7 @@ def run_training(sampling_on_the_fly, segmentation_sets=None, distribution_sets=
             else:
                 # TODO implement training with already drawn samples
                 pass
+
+
+def show_training_results():
+    pass
