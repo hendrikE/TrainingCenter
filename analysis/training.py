@@ -12,6 +12,18 @@ from keras.utils.np_utils import to_categorical
 from sklearn.metrics import confusion_matrix, accuracy_score
 from scipy.stats import multivariate_normal
 
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.neural_network import MLPClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import SVC
+from sklearn.gaussian_process import GaussianProcessClassifier
+from sklearn.gaussian_process.kernels import RBF
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
+
 batch_size = 10
 no_epochs = 50
 learning_rate = 0.001
@@ -41,7 +53,7 @@ def load_data(split, distribution_set):
 
     for i, d in enumerate(data):
         data_merged.append(np.vstack(d))
-        labels_merged.append(np.vstack(labels[i]))
+        labels_merged.append(np.array(labels[i]).flatten())
 
     data_shuffled = []
     labels_shuffled = []
@@ -176,3 +188,85 @@ def train_with_sampling_on_the_fly(segmentation_loaded,
 
 def train_without_sampling_on_the_fly():
     data = os.listdir(os.path.join("analysis_files", "samples"))
+
+
+def load_features(split, feature_path):
+    distributions = os.listdir(feature_path)
+
+    # train, val, test
+    data = [[], []]
+    labels = [[], []]
+
+    for distribution in distributions:
+        cls_data = np.load(os.path.join(feature_path, distribution))
+        length = cls_data.shape[0]
+        data[0].append(cls_data[:int(length * split[0])])
+        data[1].append(cls_data[int(length * split[0]):])
+        for i in range(2):
+            labels[i].append(np.full((int(length * split[i]), 1), int(distribution.split(".")[0].split("_")[1]) - 1))
+
+    data_merged = []
+    labels_merged = []
+
+    for i, d in enumerate(data):
+        data_merged.append(np.vstack(d))
+        labels_merged.append(np.array(labels[i]).flatten())
+
+    data_shuffled = []
+    labels_shuffled = []
+
+    for i, d in enumerate(data_merged):
+        indices = np.arange(d.shape[0])
+        np.random.shuffle(indices)
+        data_shuffled.append(d[indices])
+        labels_shuffled.append(labels_merged[i][indices])
+
+    return data_shuffled, labels_shuffled
+
+
+def features_train_test(classifiers, train_data, train_label, test_data, test_label, standardize=False):
+    if standardize:
+        ss = StandardScaler()
+        train_data = ss.fit_transform(train_data)
+        test_data = ss.transform(test_data)
+
+    confusion_matrices = []
+    accuracies = []
+    for classifier in classifiers:
+        classifier.fit(train_data, train_label)
+        confusion_matrices.append(confusion_matrix(test_label, classifier.predict(test_data)))
+        accuracies.append(classifier.score(test_data, test_label))
+
+    return confusion_matrices, accuracies
+
+
+def feature_training(feature_path, results_path, number):
+    (train_data, test_data), (train_label, test_label) = load_features((0.9, 0.1), feature_path)
+
+    names = ["Nearest Neighbors", "Linear SVM", "RBF SVM", "Gaussian Process",
+             "Decision Tree", "Random Forest", "Neural Net", "AdaBoost",
+             "Naive Bayes", "QDA"]
+
+    classifiers = [
+        KNeighborsClassifier(3),
+        SVC(kernel="linear", C=0.025),
+        SVC(gamma=2, C=1),
+        GaussianProcessClassifier(1.0 * RBF(1.0)),
+        DecisionTreeClassifier(max_depth=5),
+        RandomForestClassifier(max_depth=5, n_estimators=10, max_features=1),
+        MLPClassifier(alpha=1, max_iter=1000),
+        AdaBoostClassifier(),
+        GaussianNB(),
+        QuadraticDiscriminantAnalysis()]
+
+    confusion_matrices, accuracies = features_train_test(classifiers,
+                                                         train_data, train_label,
+                                                         test_data, test_label)
+
+    confusion_matrices = dict(zip(names, confusion_matrices))
+    accuracies = dict(zip(names, accuracies))
+
+    with open(os.path.join(results_path, "confusion_matrices_seg_{}".format(number)), "wb") as matrix_file:
+        pickle.dump(confusion_matrices, matrix_file)
+
+    return accuracies

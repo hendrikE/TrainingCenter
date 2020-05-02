@@ -68,3 +68,38 @@ def draw_sample(params, seg, path, size):
         l, w, h = s
         grid[int(l), int(w), int(h)] = sample[index]
     np.save(path, grid)
+
+
+def generate_features(distributions, segmentation, path, size):
+    distributions_features = []
+    for distribution in distributions:
+        distribution = multivariate_normal(distribution[:3], np.diag(distribution[3:]))
+        sample = distribution.pdf(segmentation[:, 3:])
+        weight = np.sum(sample)
+        features = []
+        for dim in [3, 4, 5]:
+            features.append(np.sum(np.multiply(segmentation[:, dim] / weight, sample)))
+
+        grid = np.zeros((size[0], size[1], size[2]))
+        for index, s in enumerate(segmentation[:, :3]):
+            l, w, h = s
+            grid[int(l), int(w), int(h)] = sample[index]
+        x_dist = np.sum(grid, axis=(1, 2))
+        y_dist = np.sum(grid, axis=(0, 2))
+        z_dist = np.sum(grid, axis=(0, 1))
+
+        x_cdf = np.array([np.sum(x_dist[:i + 1]) for i in range(x_dist.shape[0])])
+        y_cdf = np.array([np.sum(y_dist[:i + 1]) for i in range(y_dist.shape[0])])
+        z_cdf = np.array([np.sum(z_dist[:i + 1]) for i in range(z_dist.shape[0])])
+
+        for cdf in [x_cdf, y_cdf, z_cdf]:
+            for q in [0.05, 0.25, 0.75, 0.9]:
+                features.append(np.quantile(cdf, q))
+
+        distributions_features.append(features)
+
+    np.save(path, distributions_features)
+
+    # PCA
+    # Clustering to single out multiple contamination objects
+    # Fit to uni-variate distributions and get box-plot-values as features

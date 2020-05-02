@@ -9,7 +9,7 @@ from plotly.subplots import make_subplots
 import plotly.figure_factory as ff
 import numpy as np
 from scipy.stats import multivariate_normal
-# import networkx as nx
+import networkx as nx
 
 
 def visualize_distributions(environment_path, distributions_path):
@@ -305,7 +305,10 @@ def visualize_training(path):
 
 
 def plot_keras_graph():
-    pass
+    path = "../analysis_files/results/coarse_cuboid_ENV_basic/center_classes/segmentation_1/model_graph"
+    with open(path, "rb") as file:
+        graph = pickle.load(file)
+    graph = nx.Graph(nx.nx_pydot.from_pydot(graph))
 
 
 def confusion_matrix(path):
@@ -326,13 +329,69 @@ def confusion_matrix(path):
     fig.show()
 
 
+def confusion_matrices(path, names):
+    with open(path, "rb") as matrix_file:
+        matrices = pickle.load(matrix_file)
+
+    rows = 2
+    cols = 5
+
+    specs = [[{'type': 'heatmap'} for _ in range(cols)] for _ in range(rows)]
+
+    fig = make_subplots(
+        rows=rows, cols=cols,
+        specs=specs,
+        subplot_titles=[x for x in matrices.keys()],
+        vertical_spacing=0.07
+    )
+    for index, matrix in enumerate(matrices.values()):
+        if index < 5:
+            row = 1
+            col = index + 1
+        else:
+            row = 2
+            col = index - 4
+        fig.add_trace(
+            go.Heatmap(
+                x=list(range(1, matrix.shape[0] + 1)),
+                y=list(range(1, matrix.shape[1] + 1)),
+                z=matrix,
+                colorscale="Viridis",
+                coloraxis="coloraxis"
+            ),
+            row=row,
+            col=col
+        )
+    title = "Confusion Matrices for Different Classifiers "
+    names = "Segmentation Set '{}' Segmentation {} Distributions Set '{}'".format(names[0], names[1], names[2])
+    fig.update_layout(
+        title=title + names,
+        font=dict(
+            family="Courier New, monospace",
+            size=18,
+            color="#7f7f7f"
+        ),
+        coloraxis=dict(colorscale='Viridis'),
+        showlegend=False
+    )
+    fig.show()
+
+
+def visualize_feature_distributions():
+    pass
+
+
+def visualize_feature_comparison():
+    pass
+
+
+def visualize_feature_accuracies():
+    pass
+
+
+def visualize_segmentation_resolution_effect():
+    pass
+
+
 if __name__ == "__main__":
-    visualize_samples(
-        "../analysis_files/distributions/corner_classes.json",
-        "../analysis_files/segmentations/basic_cuboid_ENV_basic/1.npy"
-    )
-    visualize_segmentation_over_distribution(
-        "../analysis_files/distributions/corner_classes.json",
-        "../analysis_files/segmentations/basic_cuboid_ENV_basic/1.npy",
-        "../analysis_files/environments/basic.json"
-    )
+    pass

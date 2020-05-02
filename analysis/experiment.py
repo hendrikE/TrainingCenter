@@ -131,6 +131,52 @@ def show_samples():
     pass
 
 
+def create_features(segmentation_sets=None, distribution_sets=None):
+    """
+        This function allows to create features from distributions based on given segmentations.
+        :param segmentation_sets: A list of segmentation sets that should be used, leave None if all should be used
+        :param distribution_sets: A list of distribution sets that should be used, leave None if all should be used
+        :return:
+        """
+    if segmentation_sets is None:
+        segmentation_sets = \
+            [x for x in os.listdir(os.path.join("analysis_files", "segmentations")) if not x.endswith(".json")]
+    if distribution_sets is None:
+        distribution_sets = \
+            [x for x in os.listdir(os.path.join("analysis_files", "distributions")) if not x.endswith(".json")]
+
+    for segmentation_set in segmentation_sets:
+        segmentation_set_path = os.path.join("analysis_files", "features", segmentation_set)
+        if not os.path.exists(segmentation_set_path):
+            os.mkdir(segmentation_set_path)
+        segmentations = os.listdir(os.path.join("analysis_files", "segmentations", segmentation_set))
+
+        for distribution_set in distribution_sets:
+            distribution_set_path = os.path.join(segmentation_set_path, distribution_set)
+            os.mkdir(distribution_set_path)
+            distributions = os.listdir(os.path.join("analysis_files", "distributions", distribution_set))
+
+            for segmentation in segmentations:
+                segmentation_loaded = np.load(os.path.join("analysis_files", "segmentations",
+                                                           segmentation_set, segmentation))
+                length = max(segmentation_loaded[:, 0]) + 1
+                width = max(segmentation_loaded[:, 1]) + 1
+                height = max(segmentation_loaded[:, 2]) + 1
+                size = int(length), int(width), int(height)
+
+                segmentation_path = os.path.join(distribution_set_path,
+                                                 "segmentation_{}".format(segmentation.split(".")[0]))
+                os.mkdir(segmentation_path)
+
+                for distribution in distributions:
+                    distribution_elements = np.load(os.path.join("analysis_files", "distributions",
+                                                                 distribution_set, distribution))
+
+                    distribution_path = os.path.join(segmentation_path,
+                                                     "distribution_{}".format(distribution.split(".")[0]))
+                    sampling.generate_features(distribution_elements, segmentation_loaded, distribution_path, size)
+
+
 def run_training(sampling_on_the_fly, segmentation_sets=None, distribution_sets=None):
     """
     This function allows to train a model for contamination detection.
@@ -173,7 +219,7 @@ def run_training(sampling_on_the_fly, segmentation_sets=None, distribution_sets=
                     )
                     accuracies[segmentation_name] = accuracy
 
-                with open(os.path.join(distribution_set_path, "accuracies.json"), "wb") as acc_file:
+                with open(os.path.join(distribution_set_path, "accuracies"), "wb") as acc_file:
                     pickle.dump(accuracies, acc_file)
 
             else:
@@ -182,4 +228,50 @@ def run_training(sampling_on_the_fly, segmentation_sets=None, distribution_sets=
 
 
 def show_training_results():
+    pass
+
+
+def run_feature_training(segmentation_sets=None, distribution_sets=None):
+    """
+    This function allows to train a model for contamination detection based on pre-generated features.
+    :param segmentation_sets: Which segmentation sets should be used, leave None if all should be used
+    :param distribution_sets: Which distribution sets should be used, leave None if all should be used
+    :return:
+    """
+    if segmentation_sets is None:
+        segmentation_sets = \
+            [x for x in os.listdir(os.path.join("analysis_files", "segmentations")) if not x.endswith(".json")]
+    if distribution_sets is None:
+        distribution_sets = \
+            [x for x in os.listdir(os.path.join("analysis_files", "distributions")) if not x.endswith(".json")]
+
+    for segmentation_set in segmentation_sets:
+        segmentation_set_path = os.path.join("analysis_files", "feature_results", segmentation_set)
+        if not os.path.exists(segmentation_set_path):
+            os.mkdir(segmentation_set_path)
+        segmentations = os.listdir(os.path.join("analysis_files", "segmentations", segmentation_set))
+        segmentations.sort()
+
+        for distribution_set in distribution_sets:
+            distribution_set_path = os.path.join(segmentation_set_path, distribution_set)
+            os.mkdir(distribution_set_path)
+            accuracies = {}
+            for segmentation in segmentations:
+                segmentation_name = segmentation.split(".")[0]
+                feature_path = os.path.join("analysis_files", "features",
+                                            segmentation_set, distribution_set,
+                                            "segmentation_{}".format(segmentation.split(".")[0]))
+                print("Training on Segmentation I")
+                accuracy = training.feature_training(
+                    feature_path,
+                    distribution_set_path,
+                    segmentation_name
+                )
+                accuracies[segmentation_name] = accuracy
+
+            with open(os.path.join(distribution_set_path, "accuracies"), "wb") as acc_file:
+                pickle.dump(accuracies, acc_file)
+
+
+def show_feature_training_results():
     pass
