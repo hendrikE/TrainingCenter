@@ -4,6 +4,8 @@ import json
 import pickle
 import math
 
+from analysis import functions
+
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import plotly.figure_factory as ff
@@ -12,7 +14,7 @@ from scipy.stats import multivariate_normal
 import networkx as nx
 
 
-def visualize_distributions(environment_path, distributions_path):
+def visualize_distributions(environment_path, distributions_path, name):
 
     with open(distributions_path, "r+") as dist_file:
         distributions_loaded = json.load(dist_file)
@@ -45,7 +47,7 @@ def visualize_distributions(environment_path, distributions_path):
 
     fig = make_subplots(
         rows=rows, cols=cols,
-        subplot_titles=["Class {}".format(x) for x in range(no_distributions)],
+        subplot_titles=["Class {}".format(x) for x in range(1, no_distributions + 1)],
         specs=specs,
         vertical_spacing=0.05
     )
@@ -71,7 +73,7 @@ def visualize_distributions(environment_path, distributions_path):
             col=col
         )
     fig.update_layout(
-        title="Distributions",
+        title="Distributions '{}'".format(name),
         font=dict(
             family="Courier New, monospace",
             size=14,
@@ -81,7 +83,7 @@ def visualize_distributions(environment_path, distributions_path):
     fig.show()
 
 
-def visualize_segmentations(path):
+def visualize_segmentations(path, name):
     segmentations = os.listdir(path)
     segmentations.sort()
 
@@ -98,8 +100,10 @@ def visualize_segmentations(path):
 
     fig = make_subplots(
         rows=rows, cols=cols,
-        subplot_titles=["Segmentation {}".format(x) for x in range(no_segmentations)],
-        specs=specs)
+        subplot_titles=["Segmentation {}".format(x) for x in range(1, no_segmentations + 1)],
+        specs=specs,
+        vertical_spacing=0.07
+    )
 
     for index, segmentation in enumerate(segmentations):
         segmentation_loaded = np.load(os.path.join(path, segmentation))
@@ -120,7 +124,15 @@ def visualize_segmentations(path):
             row=row,
             col=col
         )
-
+    fig.update_layout(
+        title="Segmentations '{}'".format(name),
+        font=dict(
+            family="Courier New, monospace",
+            size=14,
+            color="#7f7f7f"
+        ),
+        showlegend=False
+    )
     fig.show()
 
 
@@ -158,7 +170,7 @@ def visualize_segmentation_over_distribution(distributions_path, segmentation_pa
 
     fig = make_subplots(
         rows=rows, cols=cols,
-        subplot_titles=["Class {}".format(x) for x in range(no_distributions)],
+        subplot_titles=["Class {}".format(x) for x in range(1, no_distributions + 1)],
         specs=specs,
         vertical_spacing=0.05
     )
@@ -233,7 +245,7 @@ def visualize_samples(distribution_path, segmentation_path):
     fig = make_subplots(
         rows=rows, cols=cols,
         vertical_spacing=0.05,
-        subplot_titles=[str(x) for x in range(8)],
+        subplot_titles=["Class {}".format(x) for x in range(1, no_distributions + 1)],
         specs=specs)
 
     for index, val in enumerate(distributions):
@@ -377,6 +389,102 @@ def confusion_matrices(path, names):
     fig.show()
 
 
+def visualize_feature_creation(distribution, segmentation, size):
+    rows = 3
+    cols = 5
+    specs = [
+        [{"type": "scatter3d", "rowspan": 2, "colspan": 2}, None, {"type": "scatter"}, {"type": "scatter"}, {"type": "scatter"}],
+        [None, None, {"type": "scatter"}, {"type": "scatter"}, {"type": "scatter"}],
+        [None, None, {"type": "table", "rowspan": 1, "colspan": 3}, None, None]
+    ]
+    fig = make_subplots(
+        rows=rows, cols=cols,
+        specs=specs,
+        # subplot_titles=["Distributions Set '{}'".format(x.split("/")[-1]) for x in paths],
+        vertical_spacing=0.07,
+        horizontal_spacing=0.07
+    )
+    distribution = multivariate_normal(distribution[:3], np.diag(distribution[3:]))
+    sample = distribution.pdf(segmentation[:, 3:])
+
+    fig.add_trace(
+        go.Scatter3d(x=segmentation[:, 3],
+                     y=segmentation[:, 4],
+                     z=segmentation[:, 5],
+                     mode="markers",
+                     marker=dict(
+                         size=np.interp(sample, (sample.min(), sample.max()), (2, 10))
+                     ),
+                     showlegend=False
+                     ),
+        row=1, col=1)
+
+    grid = np.zeros((size[0], size[1], size[2]))
+    for index, s in enumerate(segmentation[:, :3]):
+        l, w, h = s
+        grid[int(l), int(w), int(h)] = sample[index]
+    x_dist = np.sum(grid, axis=(1, 2))
+    y_dist = np.sum(grid, axis=(0, 2))
+    z_dist = np.sum(grid, axis=(0, 1))
+
+    names = ["X", "Y", "Z"]
+
+    for index, dist in enumerate([x_dist, y_dist, z_dist]):
+        fig.add_trace(
+            go.Scatter(
+                x=[x for x in range(1, dist.shape[0] + 1)],
+                y=dist,
+                mode="lines+markers",
+                name="{} Distribution".format(names[index])
+            ),
+            row=1, col=index+3
+        )
+
+    x_cdf = np.array([np.sum(x_dist[:i + 1]) for i in range(x_dist.shape[0])])
+    y_cdf = np.array([np.sum(y_dist[:i + 1]) for i in range(y_dist.shape[0])])
+    z_cdf = np.array([np.sum(z_dist[:i + 1]) for i in range(z_dist.shape[0])])
+
+    for index, dist in enumerate([x_cdf, y_cdf, z_cdf]):
+        fig.add_trace(
+            go.Scatter(
+                x=[x for x in range(1, dist.shape[0] + 1)],
+                y=dist,
+                mode="lines+markers",
+                name="{} Cumulated Distribution".format(names[index])
+            ),
+            row=2, col=index+3
+        )
+
+    features = [functions.calc_feature_values(cdf, [0.1, 0.25, 0.5, 0.75, 0.9]) for cdf in [x_cdf, y_cdf, z_cdf]]
+    fig.add_trace(
+        go.Table(
+            header=dict(
+                values=["Features", "X Dimension", "Y Dimension", "Z Dimension"],
+                font=dict(size=15),
+                height=30,
+                align="left"
+            ),
+            cells=dict(
+                values=np.vstack([["10 Percent", "25 Percent", "50 Percent", "75 Percent", "90 Percent"],
+                                  features
+                                  ]),
+                font=dict(size=12),
+                height=30,
+                align="left")
+        ),
+        row=3, col=3
+    )
+    fig.update_layout(
+        title="Features Creation",
+        font=dict(
+            family="Courier New, monospace",
+            size=18,
+            color="#7f7f7f"
+        )
+    )
+    fig.show()
+
+
 def visualize_feature_distributions():
     pass
 
@@ -385,8 +493,51 @@ def visualize_feature_comparison():
     pass
 
 
-def visualize_feature_accuracies():
-    pass
+def visualize_feature_accuracies(paths):
+    colors = ["lightsalmon", "indianred", "darksalmon"]
+    rows = 3
+    cols = 1
+    specs = [[{'type': 'bar'} for _ in range(cols)] for _ in range(rows)]
+    fig = make_subplots(
+        rows=rows, cols=cols,
+        specs=specs,
+        subplot_titles=["Distributions Set '{}'".format(x.split("/")[-1]) for x in paths],
+        vertical_spacing=0.07,
+        shared_xaxes=True
+    )
+    for index, path in enumerate(paths):
+        row = index + 1
+        col = 1
+        with open(os.path.join(path, "accuracies"), "rb") as accuracy_file:
+            accuracies = pickle.load(accuracy_file)
+        if index == 0:
+            show = True
+        else:
+            show = False
+        for seg, acc in accuracies.items():
+            fig.add_trace(
+                go.Bar(
+                    name=seg,
+                    x=[x for x in acc.keys()],
+                    y=[x for x in acc.values()],
+                    text=["{:.2f}".format(x) for x in acc.values()],
+                    textposition="inside",
+                    legendgroup="group",
+                    showlegend=show,
+                    marker_color=colors[int(seg) - 1]
+                ),
+                row=row,
+                col=col
+            )
+    fig.update_layout(
+        title="Accuracies",
+        font=dict(
+            family="Courier New, monospace",
+            size=18,
+            color="#7f7f7f"
+        )
+    )
+    fig.show()
 
 
 def visualize_segmentation_resolution_effect():

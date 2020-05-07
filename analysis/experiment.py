@@ -41,7 +41,7 @@ def show_distributions(env, distribution_sets=None):
     env_path = os.path.join("analysis_files", "environments", "{}.json".format(env))
     for distribution_set in distribution_sets:
         distribution_set_path = os.path.join("analysis_files", "distributions", "{}.json".format(distribution_set))
-        visualize.visualize_distributions(env_path, distribution_set_path)
+        visualize.visualize_distributions(env_path, distribution_set_path, distribution_set)
 
 
 def create_time_series_distributions():
@@ -70,8 +70,13 @@ def create_segmentations(env, segmentation_sets=None):
                 sampling.cuboid_segmentation(file_path, environment, cls, val, save=True)
 
 
-def show_segmentation():
-    pass
+def show_segmentation(segmentation_sets=None):
+    if segmentation_sets is None:
+        segmentation_sets = \
+            [x for x in os.listdir(os.path.join("analysis_files", "segmentations")) if not x.endswith(".json")]
+    for segmentation_set in segmentation_sets:
+        segmentation_set_path = os.path.join("analysis_files", "segmentations", segmentation_set)
+        visualize.visualize_segmentations(segmentation_set_path, segmentation_set)
 
 
 def draw_samples(segmentation_sets=None, distribution_sets=None):
@@ -177,6 +182,27 @@ def create_features(segmentation_sets=None, distribution_sets=None):
                     sampling.generate_features(distribution_elements, segmentation_loaded, distribution_path, size)
 
 
+def show_features(segmentation_sets, distribution_sets):
+    for segmentation_set in segmentation_sets:
+        segmentation_set_path = os.path.join("analysis_files", "segmentations", segmentation_set)
+        for segmentation in os.listdir(segmentation_set_path):
+            segmentation_loaded = np.load(os.path.join("analysis_files", "segmentations",
+                                                       segmentation_set, segmentation))
+            length = max(segmentation_loaded[:, 0]) + 1
+            width = max(segmentation_loaded[:, 1]) + 1
+            height = max(segmentation_loaded[:, 2]) + 1
+            size = int(length), int(width), int(height)
+            for distribution_set in distribution_sets:
+                distribution_set_path = os.path.join("analysis_files",
+                                                     "distributions",
+                                                     "{}.json".format(distribution_set))
+                with open(distribution_set_path, "r+") as distribution_file:
+                    distribution_set_loaded = json.load(distribution_file)
+                distributions = [[((x[0] + x[1]) / 2) for x in val] for val in distribution_set_loaded.values()]
+                for distribution in distributions:
+                    visualize.visualize_feature_creation(distribution, segmentation_loaded, size)
+
+
 def run_training(sampling_on_the_fly, segmentation_sets=None, distribution_sets=None):
     """
     This function allows to train a model for contamination detection.
@@ -273,5 +299,8 @@ def run_feature_training(segmentation_sets=None, distribution_sets=None):
                 pickle.dump(accuracies, acc_file)
 
 
-def show_feature_training_results():
-    pass
+def show_feature_training_results(segmentation_sets=None):
+    for segmentation_set in segmentation_sets:
+        path = os.path.join("analysis_files", "feature_results", segmentation_set)
+        distribution_sets = os.listdir(path)
+        visualize.visualize_feature_accuracies([os.path.join(path, dist_set) for dist_set in distribution_sets])
