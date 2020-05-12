@@ -257,11 +257,12 @@ def show_training_results():
     pass
 
 
-def run_feature_training(segmentation_sets=None, distribution_sets=None):
+def run_feature_training(segmentation_sets=None, distribution_sets=None, cls_set=1):
     """
     This function allows to train a model for contamination detection based on pre-generated features.
     :param segmentation_sets: Which segmentation sets should be used, leave None if all should be used
     :param distribution_sets: Which distribution sets should be used, leave None if all should be used
+    :param cls_set: Which set of classifiers to use for training
     :return:
     """
     if segmentation_sets is None:
@@ -287,11 +288,12 @@ def run_feature_training(segmentation_sets=None, distribution_sets=None):
                 feature_path = os.path.join("analysis_files", "features",
                                             segmentation_set, distribution_set,
                                             "segmentation_{}".format(segmentation.split(".")[0]))
-                print("Training on Segmentation I")
+                print("Training on Segmentation {}".format(segmentation))
                 accuracy = training.feature_training(
                     feature_path,
                     distribution_set_path,
-                    segmentation_name
+                    segmentation_name,
+                    cls_set=cls_set
                 )
                 accuracies[segmentation_name] = accuracy
 

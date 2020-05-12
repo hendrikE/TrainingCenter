@@ -240,24 +240,34 @@ def features_train_test(classifiers, train_data, train_label, test_data, test_la
     return confusion_matrices, accuracies
 
 
-def feature_training(feature_path, results_path, number):
+def feature_training(feature_path, results_path, number, cls_set=1):
     (train_data, test_data), (train_label, test_label) = load_features((0.9, 0.1), feature_path)
 
-    names = ["Nearest Neighbors", "Linear SVM", "RBF SVM", "Gaussian Process",
-             "Decision Tree", "Random Forest", "Neural Net", "AdaBoost",
-             "Naive Bayes", "QDA"]
+    if cls_set == 1:
+        names = ["Nearest Neighbors", "Linear SVM", "RBF SVM", "Gaussian Process",
+                 "Decision Tree", "Random Forest", "Neural Net", "AdaBoost",
+                 "Naive Bayes", "QDA"]
 
-    classifiers = [
-        KNeighborsClassifier(3),
-        SVC(kernel="linear", C=0.025),
-        SVC(gamma=2, C=1),
-        GaussianProcessClassifier(1.0 * RBF(1.0)),
-        DecisionTreeClassifier(max_depth=5),
-        RandomForestClassifier(max_depth=5, n_estimators=10, max_features=1),
-        MLPClassifier(alpha=1, max_iter=1000),
-        AdaBoostClassifier(),
-        GaussianNB(),
-        QuadraticDiscriminantAnalysis()]
+        classifiers = [
+            KNeighborsClassifier(3),
+            SVC(kernel="linear", C=0.025),
+            SVC(gamma=2, C=1),
+            GaussianProcessClassifier(1.0 * RBF(1.0)),
+            DecisionTreeClassifier(max_depth=5),
+            RandomForestClassifier(max_depth=5, n_estimators=10, max_features=1),
+            MLPClassifier(alpha=1, max_iter=1000),
+            AdaBoostClassifier(),
+            GaussianNB(),
+            QuadraticDiscriminantAnalysis()]
+
+    else:
+        names = ["Decision Tree", "Random Forest", "AdaBoost", "Naive Bayes"]
+
+        classifiers = [
+            DecisionTreeClassifier(max_depth=5),
+            RandomForestClassifier(max_depth=5, n_estimators=10, max_features=1),
+            AdaBoostClassifier(),
+            GaussianNB()]
 
     confusion_matrices, accuracies = features_train_test(classifiers,
                                                          train_data, train_label,
