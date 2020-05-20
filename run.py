@@ -80,8 +80,8 @@ if __name__ == "__main__":
                            "simple_cuboid_ENV_basic_INC_0_DEV_5"],
         single_segmentations=[["3_3_3", "4_4_4", "5_5_5", "10_10_10"] for _ in range(5)],
         distribution_sets=["combined_classes", "orientation_classes", "position_classes", "shape_classes"],
-        # cls_set=["Nearest Neighbors", "Linear SVM", "RBF SVM", "Gaussian Process",
-        #          "Decision Tree", "Random Forest", "Neural Net", "Naive Bayes"],
+        cls_set=["Nearest Neighbors", "Linear SVM", "RBF SVM",
+                 "Decision Tree", "Random Forest", "Neural Net", "Naive Bayes"],
         train_splits=[10, 20, 30, 40, 50, 60, 70, 80, 90]
     )
     experiment.run_feature_training_with_variations(
@@ -92,7 +92,7 @@ if __name__ == "__main__":
                            "simple_cuboid_ENV_basic_INC_25_DEV_0"],
         single_segmentations=[["3_3_3", "4_4_4", "5_5_5", "10_10_10"] for _ in range(5)],
         distribution_sets=["combined_classes", "orientation_classes", "position_classes", "shape_classes"],
-        # cls_set=["Nearest Neighbors", "Linear SVM", "RBF SVM", "Gaussian Process",
-        #          "Decision Tree", "Random Forest", "Neural Net", "Naive Bayes"],
+        cls_set=["Nearest Neighbors", "Linear SVM", "RBF SVM",
+                 "Decision Tree", "Random Forest", "Neural Net", "Naive Bayes"],
         train_splits=[10, 20, 30, 40, 50, 60, 70, 80, 90]
     )

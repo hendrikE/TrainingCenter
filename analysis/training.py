@@ -264,11 +264,11 @@ def feature_training(feature_path, results_path, number, train_split=90,
 
     if type(cls_set) == list:
         if all(x in names for x in cls_set):
-            names = cls_set
             classifiers = [classifiers[names.index(classifier)] for classifier in cls_set]
+            names = cls_set
     elif cls_set in names:
-        names = [cls_set]
         classifiers = [classifiers[names.index(cls_set)]]
+        names = [cls_set]
 
     confusion_matrices, accuracies = features_train_test(classifiers,
                                                          train_data, train_label,
