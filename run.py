@@ -8,7 +8,7 @@ if __name__ == "__main__":
     #                                        "orientation_classes.json",
     #                                        "shape_classes.json",
     #                                        "position_classes.json"])
-    experiment.create_segmentations("basic", ["simple_cuboid.json"])
+    # experiment.create_segmentations("basic", ["simple_cuboid.json"])
     # Drawing and saving samples requires large storage space (20 GiB)
     # If samples were drawn, the training can be run without sampling on the fly
     # experiment.draw_samples()
@@ -62,13 +62,37 @@ if __name__ == "__main__":
     )
     """
     # visualize.visualize_train_data_amount_influence("results_comparison_training_rate.csv")
-    experiment.create_modified_features(
-        ["simple_cuboid_ENV_basic"],
-        ["combined_classes", "orientation_classes", "position_classes", "shape_classes"],
-        deviation_set=[1, 2, 3, 4, 5]
+    # experiment.create_modified_features(
+    #     ["simple_cuboid_ENV_basic"],
+    #     ["combined_classes", "orientation_classes", "position_classes", "shape_classes"],
+    #     deviation_set=[1, 2, 3, 4, 5]
+    # )
+    # experiment.create_modified_features(
+    #     ["simple_cuboid_ENV_basic"],
+    #     ["combined_classes", "orientation_classes", "position_classes", "shape_classes"],
+    #     incompleteness_set=[0.05, 0.10, 0.15, 0.20, 0.25]
+    # )
+    experiment.run_feature_training_with_variations(
+        segmentation_sets=["simple_cuboid_ENV_basic_INC_0_DEV_1",
+                           "simple_cuboid_ENV_basic_INC_0_DEV_2",
+                           "simple_cuboid_ENV_basic_INC_0_DEV_3",
+                           "simple_cuboid_ENV_basic_INC_0_DEV_4",
+                           "simple_cuboid_ENV_basic_INC_0_DEV_5"],
+        single_segmentations=[["3_3_3", "4_4_4", "5_5_5", "10_10_10"] for _ in range(5)],
+        distribution_sets=["combined_classes", "orientation_classes", "position_classes", "shape_classes"],
+        # cls_set=["Nearest Neighbors", "Linear SVM", "RBF SVM", "Gaussian Process",
+        #          "Decision Tree", "Random Forest", "Neural Net", "Naive Bayes"],
+        train_splits=[10, 20, 30, 40, 50, 60, 70, 80, 90]
     )
-    experiment.create_modified_features(
-        ["simple_cuboid_ENV_basic"],
-        ["combined_classes", "orientation_classes", "position_classes", "shape_classes"],
-        incompleteness_set=[0.05, 0.10, 0.15, 0.20, 0.25]
+    experiment.run_feature_training_with_variations(
+        segmentation_sets=["simple_cuboid_ENV_basic_INC_5_DEV_0",
+                           "simple_cuboid_ENV_basic_INC_10_DEV_0",
+                           "simple_cuboid_ENV_basic_INC_15_DEV_0",
+                           "simple_cuboid_ENV_basic_INC_20_DEV_0",
+                           "simple_cuboid_ENV_basic_INC_25_DEV_0"],
+        single_segmentations=[["3_3_3", "4_4_4", "5_5_5", "10_10_10"] for _ in range(5)],
+        distribution_sets=["combined_classes", "orientation_classes", "position_classes", "shape_classes"],
+        # cls_set=["Nearest Neighbors", "Linear SVM", "RBF SVM", "Gaussian Process",
+        #          "Decision Tree", "Random Forest", "Neural Net", "Naive Bayes"],
+        train_splits=[10, 20, 30, 40, 50, 60, 70, 80, 90]
     )

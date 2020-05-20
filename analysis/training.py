@@ -262,7 +262,11 @@ def feature_training(feature_path, results_path, number, train_split=90,
         GaussianNB(),
         QuadraticDiscriminantAnalysis()]
 
-    if cls_set in names:
+    if type(cls_set) == list:
+        if all(x in names for x in cls_set):
+            names = cls_set
+            classifiers = [classifiers[names.index(classifier)] for classifier in cls_set]
+    elif cls_set in names:
         names = [cls_set]
         classifiers = [classifiers[names.index(cls_set)]]
 
