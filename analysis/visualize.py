@@ -12,6 +12,7 @@ import plotly.figure_factory as ff
 import numpy as np
 from scipy.stats import multivariate_normal
 import networkx as nx
+import pandas as pd
 
 
 def visualize_distributions(environment_path, distributions_path, name):
@@ -494,8 +495,8 @@ def visualize_feature_comparison():
 
 
 def visualize_feature_accuracies(paths):
-    colors = ["lightsalmon", "indianred", "darksalmon"]
-    rows = 3
+    colors = ["lightsalmon", "indianred", "darksalmon", "salmon", "magenta", "darkred", "palevioletred", "mediumvioletred"]
+    rows = 4
     cols = 1
     specs = [[{'type': 'bar'} for _ in range(cols)] for _ in range(rows)]
     fig = make_subplots(
@@ -505,6 +506,10 @@ def visualize_feature_accuracies(paths):
         vertical_spacing=0.07,
         shared_xaxes=True
     )
+
+    def sorting(element):
+        return int(element.split("_")[0])
+
     for index, path in enumerate(paths):
         row = index + 1
         col = 1
@@ -514,7 +519,11 @@ def visualize_feature_accuracies(paths):
             show = True
         else:
             show = False
-        for seg, acc in accuracies.items():
+
+        segmentations = list(accuracies.keys())
+        segmentations.sort(key=sorting)
+        for i, seg in enumerate(segmentations):
+            acc = accuracies[seg]
             fig.add_trace(
                 go.Bar(
                     name=seg,
@@ -524,7 +533,7 @@ def visualize_feature_accuracies(paths):
                     textposition="inside",
                     legendgroup="group",
                     showlegend=show,
-                    marker_color=colors[int(seg) - 1]
+                    marker_color=colors[int(i) - 1]
                 ),
                 row=row,
                 col=col
@@ -540,8 +549,59 @@ def visualize_feature_accuracies(paths):
     fig.show()
 
 
-def visualize_segmentation_resolution_effect():
-    pass
+def visualize_train_data_amount_influence(results_csv):
+    df = pd.read_csv(os.path.join("analysis_files", "feature_results", results_csv))
+    segmentations = df["segmentation"].unique().tolist()
+    training_splits = df["training_split"].unique().tolist()
+    distribution_sets = df["distribution_set"].unique().tolist()
+    classifiers = df["classifier"].unique().tolist()
+
+    for classifier in classifiers:
+        colors = ["black", "indianred", "blue", "plum"]
+        rows = 2
+        cols = 4
+        specs = [[{'type': 'scatter'} for _ in range(cols)] for _ in range(rows)]
+        fig = make_subplots(
+            rows=rows, cols=cols,
+            specs=specs,
+            subplot_titles=["Distributions Set<br>'{}'".format(x.split("/")[-1]) for x in distribution_sets],
+            vertical_spacing=0.07
+        )
+        for index_dist, distribution_set in enumerate(distribution_sets):
+            for index_seg, segmentation in enumerate(segmentations):
+                if index_dist > 0:
+                    show = False
+                else:
+                    show = True
+                fig.add_trace(
+                    go.Scatter(
+                        x=[5 * x for x in training_splits],
+                        y=df.query(
+                            "classifier=='{}' and distribution_set=='{}' and segmentation=='{}'".format(classifier,
+                                                                                                  distribution_set,
+                                                                                                  segmentation)
+                        )["accuracy"],
+                        mode="lines+markers",
+                        name="Segmentation '{}'".format(segmentation),
+                        marker_color=colors[index_seg],
+                        showlegend=show
+                    ),
+                    row=1,
+                    col=index_dist + 1
+                )
+
+        fig.update_layout(
+            title="Comparison for Different Amount of Training Data for Classifier '{}'".format(classifier),
+            font=dict(
+                family="Courier New, monospace",
+                size=18,
+                color="#7f7f7f"
+            )
+        )
+        fig.update_yaxes(
+            range=[0.0, 1.2]
+        )
+        fig.show()
 
 
 if __name__ == "__main__":

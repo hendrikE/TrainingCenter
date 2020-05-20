@@ -12,7 +12,7 @@ from keras.utils.np_utils import to_categorical
 from sklearn.metrics import confusion_matrix, accuracy_score
 from scipy.stats import multivariate_normal
 
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPClassifier
 from sklearn.neighbors import KNeighborsClassifier
@@ -191,6 +191,7 @@ def train_without_sampling_on_the_fly():
 
 
 def load_features(split, feature_path):
+    # TODO: use OneHotEncoder and TrainTestSplit
     distributions = os.listdir(feature_path)
 
     # train, val, test
@@ -240,43 +241,40 @@ def features_train_test(classifiers, train_data, train_label, test_data, test_la
     return confusion_matrices, accuracies
 
 
-def feature_training(feature_path, results_path, number, cls_set=1):
-    (train_data, test_data), (train_label, test_label) = load_features((0.9, 0.1), feature_path)
+def feature_training(feature_path, results_path, number, train_split=90,
+                     cls_set="basic", save_confusion_matrices=True):
+    split = (train_split / 100, (100 - train_split) / 100)
+    (train_data, test_data), (train_label, test_label) = load_features(split, feature_path)
 
-    if cls_set == 1:
-        names = ["Nearest Neighbors", "Linear SVM", "RBF SVM", "Gaussian Process",
-                 "Decision Tree", "Random Forest", "Neural Net", "AdaBoost",
-                 "Naive Bayes", "QDA"]
+    names = ["Nearest Neighbors", "Linear SVM", "RBF SVM", "Gaussian Process",
+             "Decision Tree", "Random Forest", "Neural Net", "AdaBoost",
+             "Naive Bayes", "QDA"]
 
-        classifiers = [
-            KNeighborsClassifier(3),
-            SVC(kernel="linear", C=0.025),
-            SVC(gamma=2, C=1),
-            GaussianProcessClassifier(1.0 * RBF(1.0)),
-            DecisionTreeClassifier(max_depth=5),
-            RandomForestClassifier(max_depth=5, n_estimators=10, max_features=1),
-            MLPClassifier(alpha=1, max_iter=1000),
-            AdaBoostClassifier(),
-            GaussianNB(),
-            QuadraticDiscriminantAnalysis()]
+    classifiers = [
+        KNeighborsClassifier(3),
+        SVC(kernel="linear", C=0.025),
+        SVC(gamma=2, C=1),
+        GaussianProcessClassifier(1.0 * RBF(1.0)),
+        DecisionTreeClassifier(max_depth=5),
+        RandomForestClassifier(max_depth=5, n_estimators=10, max_features=1),
+        MLPClassifier(alpha=1, max_iter=1000),
+        AdaBoostClassifier(),
+        GaussianNB(),
+        QuadraticDiscriminantAnalysis()]
 
-    else:
-        names = ["Decision Tree", "Random Forest", "AdaBoost", "Naive Bayes"]
-
-        classifiers = [
-            DecisionTreeClassifier(max_depth=5),
-            RandomForestClassifier(max_depth=5, n_estimators=10, max_features=1),
-            AdaBoostClassifier(),
-            GaussianNB()]
+    if cls_set in names:
+        names = [cls_set]
+        classifiers = [classifiers[names.index(cls_set)]]
 
     confusion_matrices, accuracies = features_train_test(classifiers,
                                                          train_data, train_label,
                                                          test_data, test_label)
 
-    confusion_matrices = dict(zip(names, confusion_matrices))
     accuracies = dict(zip(names, accuracies))
 
-    with open(os.path.join(results_path, "confusion_matrices_seg_{}".format(number)), "wb") as matrix_file:
-        pickle.dump(confusion_matrices, matrix_file)
+    if save_confusion_matrices:
+        confusion_matrices = dict(zip(names, confusion_matrices))
+        with open(os.path.join(results_path, "confusion_matrices_seg_{}".format(number)), "wb") as matrix_file:
+            pickle.dump(confusion_matrices, matrix_file)
 
     return accuracies

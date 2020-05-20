@@ -77,26 +77,118 @@ def generate_features(distributions, segmentation, path, size):
     for distribution in distributions:
         distribution = multivariate_normal(distribution[:3], np.diag(distribution[3:]))
         sample = distribution.pdf(segmentation[:, 3:])
+        if type(sample) != np.ndarray:
+            sample = [sample]
 
         grid = np.zeros((size[0], size[1], size[2]))
         for index, s in enumerate(segmentation[:, :3]):
             l, w, h = s
             grid[int(l), int(w), int(h)] = sample[index]
 
+        features = []
+
         x_dist = np.sum(grid, axis=(1, 2))
+        if size[0] > 1:
+            x_cdf = np.array([np.sum(x_dist[:i + 1]) for i in range(x_dist.shape[0])])
+            features.append(functions.calc_feature_values(x_cdf, [0.1, 0.25, 0.5, 0.75, 0.9]))
+        else:
+            features.append([x_dist[0] for _ in range(5)])
+
         y_dist = np.sum(grid, axis=(0, 2))
+        if size[1] > 1:
+            y_cdf = np.array([np.sum(y_dist[:i + 1]) for i in range(y_dist.shape[0])])
+            features.append(functions.calc_feature_values(y_cdf, [0.1, 0.25, 0.5, 0.75, 0.9]))
+        else:
+            features.append([y_dist[0] for _ in range(5)])
+
         z_dist = np.sum(grid, axis=(0, 1))
-
-        x_cdf = np.array([np.sum(x_dist[:i + 1]) for i in range(x_dist.shape[0])])
-        y_cdf = np.array([np.sum(y_dist[:i + 1]) for i in range(y_dist.shape[0])])
-        z_cdf = np.array([np.sum(z_dist[:i + 1]) for i in range(z_dist.shape[0])])
-
-        features = [functions.calc_feature_values(cdf, [0.1, 0.25, 0.5, 0.75, 0.9]) for cdf in [x_cdf, y_cdf, z_cdf]]
+        if size[2] > 1:
+            z_cdf = np.array([np.sum(z_dist[:i + 1]) for i in range(z_dist.shape[0])])
+            features.append(functions.calc_feature_values(z_cdf, [0.1, 0.25, 0.5, 0.75, 0.9]))
+        else:
+            features.append([z_dist[0] for _ in range(5)])
 
         distributions_features.append(np.array(features).flatten())
 
     np.save(path, distributions_features)
 
-    # PCA
-    # Clustering to single out multiple contamination objects
-    # Fit to uni-variate distributions and get box-plot-values as features
+
+def generate_modified_features(distributions, segmentation_base, path, size, inc_prob, deviation):
+    replacement = [
+        [-1, 0, 0],
+        [-1, 1, 0],
+        [-1, 1, 1],
+        [0, 1, 0],
+        [0, 1, 1],
+        [1, 0, 0],
+        [1, 1, 0],
+        [1, 1, 1]
+    ]
+    if deviation != 0:
+        deviation_distributions = []
+        for index in range(segmentation_base.shape[0]):
+            deviation_distributions.append(multivariate_normal(segmentation_base[index, 3:],
+                                                               np.diag([deviation for _ in range(3)])))
+    distributions_features = []
+    for distribution in distributions:
+        segmentation = segmentation_base
+        if inc_prob != 0:
+            for index in range(segmentation.shape[0]):
+                if random.random() < inc_prob:
+                    np.delete(segmentation, index, 0)
+        if deviation != 0:
+            for index in range(segmentation.shape[0]):
+                segmentation[index, 3:] = deviation_distributions[index].rvs()
+        distribution = multivariate_normal(distribution[:3], np.diag(distribution[3:]))
+        sample = distribution.pdf(segmentation[:, 3:])
+        if type(sample) != np.ndarray:
+            sample = [sample]
+
+        grid = np.ones((size[0], size[1], size[2]))
+        for index, s in enumerate(segmentation[:, :3]):
+            l, w, h = s
+            grid[int(l), int(w), int(h)] = sample[index]
+        empty_indices = np.argwhere(grid == 1).tolist()
+        if empty_indices:
+            for empty_index in empty_indices:
+                empty_index_replacements = []
+                for x in replacement:
+                    val = grid[empty_index[0] + x[0], empty_index[1] + x[1], empty_index[2] + x[2]]
+                    if val < 1:
+                        empty_index_replacements.append(val)
+                grid[empty_index[0], empty_index[1], empty_index[2]] = np.mean(empty_index_replacements)
+
+        features = []
+
+        x_dist = np.sum(grid, axis=(1, 2))
+        if size[0] > 1:
+            x_cdf = np.array([np.sum(x_dist[:i + 1]) for i in range(x_dist.shape[0])])
+            features.append(functions.calc_feature_values(x_cdf, [0.1, 0.25, 0.5, 0.75, 0.9]))
+        else:
+            features.append([x_dist[0] for _ in range(5)])
+
+        y_dist = np.sum(grid, axis=(0, 2))
+        if size[1] > 1:
+            y_cdf = np.array([np.sum(y_dist[:i + 1]) for i in range(y_dist.shape[0])])
+            features.append(functions.calc_feature_values(y_cdf, [0.1, 0.25, 0.5, 0.75, 0.9]))
+        else:
+            features.append([y_dist[0] for _ in range(5)])
+
+        z_dist = np.sum(grid, axis=(0, 1))
+        if size[2] > 1:
+            z_cdf = np.array([np.sum(z_dist[:i + 1]) for i in range(z_dist.shape[0])])
+            features.append(functions.calc_feature_values(z_cdf, [0.1, 0.25, 0.5, 0.75, 0.9]))
+        else:
+            features.append([z_dist[0] for _ in range(5)])
+
+        distributions_features.append(np.array(features).flatten())
+
+    np.save(path, distributions_features)
+
+
+def generate_cluster_features(distribution, segmentation, path, size):
+    pass
+
+
+def generate_time_series_features(distribution, segmentation, path, size):
+    pass
