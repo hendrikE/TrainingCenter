@@ -380,7 +380,9 @@ def run_feature_training_with_variations(segmentation_sets=None, single_segmenta
             [x for x in os.listdir(os.path.join("analysis_files", "distributions")) if not x.endswith(".json")]
 
     for train_split in train_splits:
+        print("Training on Split '{}'".format(train_split))
         for seg_index, segmentation_set in enumerate(segmentation_sets):
+            print("> Training Segmentation Set '{}'".format(segmentation_set))
             segmentation_set_path = os.path.join("analysis_files", "feature_results",
                                                  "TS_{}_SEG_".format(train_split) + segmentation_set)
             if not os.path.exists(segmentation_set_path):
@@ -392,6 +394,7 @@ def run_feature_training_with_variations(segmentation_sets=None, single_segmenta
                 segmentations = single_segmentations[seg_index]
 
             for distribution_set in distribution_sets:
+                print(">> Training on Distribution Set '{}'".format(distribution_set))
                 distribution_set_path = os.path.join(segmentation_set_path, distribution_set)
                 os.mkdir(distribution_set_path)
                 accuracies = {}
@@ -401,7 +404,7 @@ def run_feature_training_with_variations(segmentation_sets=None, single_segmenta
                                                 segmentation_set,
                                                 "segmentation_{}".format(segmentation.split(".")[0]),
                                                 distribution_set)
-                    print("Training on Segmentation {}".format(segmentation))
+                    print(">>> Training on Segmentation '{}'".format(segmentation))
                     accuracy = training.feature_training(
                         feature_path,
                         distribution_set_path,
