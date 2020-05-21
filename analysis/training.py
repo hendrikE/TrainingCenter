@@ -245,6 +245,7 @@ def feature_training(feature_path, results_path, number, train_split=90,
                      cls_set="basic", save_confusion_matrices=True):
     split = (train_split / 100, (100 - train_split) / 100)
     (train_data, test_data), (train_label, test_label) = load_features(split, feature_path)
+    print("Loaded Features")
 
     names = ["Nearest Neighbors", "Linear SVM", "RBF SVM", "Gaussian Process",
              "Decision Tree", "Random Forest", "Neural Net", "AdaBoost",
@@ -270,9 +271,13 @@ def feature_training(feature_path, results_path, number, train_split=90,
         classifiers = [classifiers[names.index(cls_set)]]
         names = [cls_set]
 
+    print("Finished Classifier Selection")
+
     confusion_matrices, accuracies = features_train_test(classifiers,
                                                          train_data, train_label,
                                                          test_data, test_label)
+
+    print("Finished Training")
 
     accuracies = dict(zip(names, accuracies))
 

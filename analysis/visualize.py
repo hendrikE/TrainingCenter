@@ -549,10 +549,10 @@ def visualize_feature_accuracies(paths):
     fig.show()
 
 
-def visualize_train_data_amount_influence(results_csv):
+def visualize_one_modification_influence(results_csv, modification, unmodified):
     df = pd.read_csv(os.path.join("analysis_files", "feature_results", results_csv))
     segmentations = df["segmentation"].unique().tolist()
-    training_splits = df["training_split"].unique().tolist()
+    modifier = df[modification].unique().tolist()
     distribution_sets = df["distribution_set"].unique().tolist()
     classifiers = df["classifier"].unique().tolist()
 
@@ -575,11 +575,15 @@ def visualize_train_data_amount_influence(results_csv):
                     show = True
                 fig.add_trace(
                     go.Scatter(
-                        x=[5 * x for x in training_splits],
+                        x=[5 * x for x in modifier],
                         y=df.query(
-                            "classifier=='{}' and distribution_set=='{}' and segmentation=='{}'".format(classifier,
-                                                                                                  distribution_set,
-                                                                                                  segmentation)
+                            "classifier=='{}' and "
+                            "distribution_set=='{}' and "
+                            "segmentation=='{}' and"
+                            "{}=='{}'"
+                            "{}=='{}'".format(classifier, distribution_set, segmentation,
+                                              unmodified[0][0], unmodified[0][1],
+                                              unmodified[1][0], unmodified[1][1])
                         )["accuracy"],
                         mode="lines+markers",
                         name="Segmentation '{}'".format(segmentation),
@@ -592,6 +596,67 @@ def visualize_train_data_amount_influence(results_csv):
 
         fig.update_layout(
             title="Comparison for Different Amount of Training Data for Classifier '{}'".format(classifier),
+            xaxis_title="",
+            yaxis_title="",
+            font=dict(
+                family="Courier New, monospace",
+                size=18,
+                color="#7f7f7f"
+            )
+        )
+        fig.update_yaxes(
+            range=[0.0, 1.2]
+        )
+        fig.show()
+
+
+def visualize_two_modifications_influence(results_csv, modification_one, modification_two, unmodified):
+    df = pd.read_csv(os.path.join("analysis_files", "feature_results", results_csv))
+    segmentations = df["segmentation"].unique().tolist()
+    modifier_one = df[modification_one].unique().tolist()
+    modifier_two = df[modification_two].unique().tolist()
+    distribution_sets = df["distribution_set"].unique().tolist()
+    classifiers = df["classifier"].unique().tolist()
+
+    for classifier in classifiers:
+        colors = ["black", "indianred", "blue", "plum"]
+        rows = 4
+        cols = 4
+        specs = [[{'type': 'surface'} for _ in range(cols)] for _ in range(rows)]
+        fig = make_subplots(
+            rows=rows, cols=cols,
+            specs=specs,
+            subplot_titles=["Distributions Set<br>'{}'".format(x.split("/")[-1]) for x in distribution_sets],
+            vertical_spacing=0.07
+        )
+        for index_dist, distribution_set in enumerate(distribution_sets):
+            for index_seg, segmentation in enumerate(segmentations):
+                if index_dist > 0:
+                    show = False
+                else:
+                    show = True
+                fig.add_trace(
+                    go.Surface(
+                        x=modifier_one,
+                        y=modifier_two,
+                        z=df.query(
+                            "classifier=='{}' and "
+                            "distribution_set=='{}' and "
+                            "segmentation=='{}' and"
+                            "{}=='{}'".format(classifier, distribution_set, segmentation,
+                                              unmodified[0], unmodified[1])
+                        )["accuracy"],
+                        name="Segmentation '{}'".format(segmentation),
+                        showlegend=show
+                    ),
+                    row=index_seg + 1,
+                    col=index_dist + 1
+                )
+
+        fig.update_layout(
+            title="Comparison for Different Amount of Training Data for Classifier '{}'".format(classifier),
+            xaxis_title="",
+            yaxis_title="",
             font=dict(
                 family="Courier New, monospace",
                 size=18,

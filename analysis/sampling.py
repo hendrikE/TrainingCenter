@@ -28,6 +28,10 @@ def create_distributions(file_path, dist_class, params, size, save=False):
     return distributions
 
 
+def create_time_series_distributions():
+    pass
+
+
 def cuboid_segmentation(file_path, env, cls, param, save=False):
     centers = []
     length_part, width_part, height_part = param
@@ -113,7 +117,56 @@ def generate_features(distributions, segmentation, path, size):
     np.save(path, distributions_features)
 
 
-def generate_modified_features(distributions, segmentation_base, path, size, inc_prob, deviation):
+def generate_features_with_deviation(distributions, segmentation_base, path, size, deviation):
+    deviation_distributions = []
+    for index in range(segmentation_base.shape[0]):
+        deviation_distributions.append(multivariate_normal(segmentation_base[index, 3:],
+                                                           np.diag([deviation for _ in range(3)])))
+    distributions_features = []
+    for distribution in distributions:
+        segmentation = []
+        for index in range(segmentation_base.shape[0]):
+            segmentation.append(segmentation_base[index, :3].tolist() + deviation_distributions[index].rvs().tolist())
+        segmentation = np.array(segmentation)
+        distribution = multivariate_normal(distribution[:3], np.diag(distribution[3:]))
+        sample = distribution.pdf(segmentation[:, 3:])
+        if type(sample) != np.ndarray:
+            sample = [sample]
+
+        grid = np.ones((size[0], size[1], size[2]))
+        for index, s in enumerate(segmentation[:, :3]):
+            l, w, h = s
+            grid[int(l), int(w), int(h)] = sample[index]
+
+        features = []
+
+        x_dist = np.sum(grid, axis=(1, 2))
+        if size[0] > 1:
+            x_cdf = np.array([np.sum(x_dist[:i + 1]) for i in range(x_dist.shape[0])])
+            features.append(functions.calc_feature_values(x_cdf, [0.1, 0.25, 0.5, 0.75, 0.9]))
+        else:
+            features.append([x_dist[0] for _ in range(5)])
+
+        y_dist = np.sum(grid, axis=(0, 2))
+        if size[1] > 1:
+            y_cdf = np.array([np.sum(y_dist[:i + 1]) for i in range(y_dist.shape[0])])
+            features.append(functions.calc_feature_values(y_cdf, [0.1, 0.25, 0.5, 0.75, 0.9]))
+        else:
+            features.append([y_dist[0] for _ in range(5)])
+
+        z_dist = np.sum(grid, axis=(0, 1))
+        if size[2] > 1:
+            z_cdf = np.array([np.sum(z_dist[:i + 1]) for i in range(z_dist.shape[0])])
+            features.append(functions.calc_feature_values(z_cdf, [0.1, 0.25, 0.5, 0.75, 0.9]))
+        else:
+            features.append([z_dist[0] for _ in range(5)])
+
+        distributions_features.append(np.array(features).flatten())
+
+    np.save(path, distributions_features)
+
+
+def generate_features_with_incompleteness(distributions, segmentation, path, size, inc_prob):
     replacement = [
         [-1, 0, 0],
         [-1, 1, 0],
@@ -124,21 +177,10 @@ def generate_modified_features(distributions, segmentation_base, path, size, inc
         [1, 1, 0],
         [1, 1, 1]
     ]
-    if deviation != 0:
-        deviation_distributions = []
-        for index in range(segmentation_base.shape[0]):
-            deviation_distributions.append(multivariate_normal(segmentation_base[index, 3:],
-                                                               np.diag([deviation for _ in range(3)])))
     distributions_features = []
     for distribution in distributions:
-        segmentation = segmentation_base
-        if inc_prob != 0:
-            for index in range(segmentation.shape[0]):
-                if random.random() < inc_prob:
-                    np.delete(segmentation, index, 0)
-        if deviation != 0:
-            for index in range(segmentation.shape[0]):
-                segmentation[index, 3:] = deviation_distributions[index].rvs()
+        delete_indices = [index for index in range(segmentation.shape[0]) if random.random() < inc_prob]
+        segmentation = np.delete(segmentation, delete_indices, 0)
         distribution = multivariate_normal(distribution[:3], np.diag(distribution[3:]))
         sample = distribution.pdf(segmentation[:, 3:])
         if type(sample) != np.ndarray:
@@ -153,10 +195,14 @@ def generate_modified_features(distributions, segmentation_base, path, size, inc
             for empty_index in empty_indices:
                 empty_index_replacements = []
                 for x in replacement:
-                    val = grid[empty_index[0] + x[0], empty_index[1] + x[1], empty_index[2] + x[2]]
-                    if val < 1:
-                        empty_index_replacements.append(val)
-                grid[empty_index[0], empty_index[1], empty_index[2]] = np.mean(empty_index_replacements)
+                    if empty_index[0] + x[0] in range(size[0]) and empty_index[1] + x[1] in range(size[1]) and empty_index[2] + x[2] in range(size[2]):
+                        val = grid[empty_index[0] + x[0], empty_index[1] + x[1], empty_index[2] + x[2]]
+                        if val < 1:
+                            empty_index_replacements.append(val)
+                if empty_index_replacements:
+                    grid[empty_index[0], empty_index[1], empty_index[2]] = np.mean(empty_index_replacements)
+                else:
+                    grid[empty_index[0], empty_index[1], empty_index[2]] = 0
 
         features = []
 

@@ -4,11 +4,13 @@ from analysis import functions
 from analysis import visualize
 
 if __name__ == "__main__":
-    # experiment.create_class_distributions(["combined_classes.json",
-    #                                        "orientation_classes.json",
-    #                                        "shape_classes.json",
-    #                                        "position_classes.json"])
-    # experiment.create_segmentations("basic", ["simple_cuboid.json"])
+    experiment.create_class_distributions(["combined_classes.json",
+                                           "orientation_classes.json",
+                                           "shape_classes.json",
+                                           "position_classes.json"])
+    print("Created Distributions")
+    experiment.create_segmentations("basic", ["simple_cuboid.json"])
+    print("Created Segmentations")
     # Drawing and saving samples requires large storage space (20 GiB)
     # If samples were drawn, the training can be run without sampling on the fly
     # experiment.draw_samples()
@@ -62,16 +64,18 @@ if __name__ == "__main__":
     )
     """
     # visualize.visualize_train_data_amount_influence("results_comparison_training_rate.csv")
-    # experiment.create_modified_features(
-    #     ["simple_cuboid_ENV_basic"],
-    #     ["combined_classes", "orientation_classes", "position_classes", "shape_classes"],
-    #     deviation_set=[1, 2, 3, 4, 5]
-    # )
-    # experiment.create_modified_features(
-    #     ["simple_cuboid_ENV_basic"],
-    #     ["combined_classes", "orientation_classes", "position_classes", "shape_classes"],
-    #     incompleteness_set=[0.05, 0.10, 0.15, 0.20, 0.25]
-    # )
+    experiment.create_modified_features(
+        ["simple_cuboid_ENV_basic"],
+        ["combined_classes", "orientation_classes", "position_classes", "shape_classes"],
+        deviation_set=[0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
+    )
+    print("Created Deviation Features")
+    experiment.create_modified_features(
+        ["simple_cuboid_ENV_basic"],
+        ["combined_classes", "orientation_classes", "position_classes", "shape_classes"],
+        incompleteness_set=[0.05, 0.10, 0.15, 0.20, 0.25, 0.30]
+    )
+    print("Created Incompleteness Features")
     experiment.run_feature_training_with_variations(
         segmentation_sets=["simple_cuboid_ENV_basic_INC_0_DEV_1",
                            "simple_cuboid_ENV_basic_INC_0_DEV_2",
@@ -84,6 +88,7 @@ if __name__ == "__main__":
                  "Decision Tree", "Random Forest", "Neural Net", "Naive Bayes"],
         train_splits=[10, 20, 30, 40, 50, 60, 70, 80, 90]
     )
+    print("Trained on Deviation Features")
     experiment.run_feature_training_with_variations(
         segmentation_sets=["simple_cuboid_ENV_basic_INC_5_DEV_0",
                            "simple_cuboid_ENV_basic_INC_10_DEV_0",
@@ -96,3 +101,4 @@ if __name__ == "__main__":
                  "Decision Tree", "Random Forest", "Neural Net", "Naive Bayes"],
         train_splits=[10, 20, 30, 40, 50, 60, 70, 80, 90]
     )
+    print("Trained on Incompleteness Features")

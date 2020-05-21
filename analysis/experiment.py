@@ -194,10 +194,9 @@ def create_modified_features(segmentation_sets=None, distribution_sets=None,
         :param distribution_sets: A list of distribution sets that should be used, leave None if all should be used
         :return:
         """
-    if incompleteness_set is None:
-        incompleteness_set = [0]
-    if deviation_set is None:
-        deviation_set = [0]
+    assert (deviation_set is not None or incompleteness_set is not None) and \
+           (deviation_set is None or incompleteness_set is None), "Either Deviation or Incompleteness should be given"
+
     if segmentation_sets is None:
         segmentation_sets = \
             [x for x in os.listdir(os.path.join("analysis_files", "segmentations")) if not x.endswith(".json")]
@@ -205,12 +204,12 @@ def create_modified_features(segmentation_sets=None, distribution_sets=None,
         distribution_sets = \
             [x for x in os.listdir(os.path.join("analysis_files", "distributions")) if not x.endswith(".json")]
 
-    for incompleteness in incompleteness_set:
+    if deviation_set is not None:
         for deviation in deviation_set:
             for segmentation_set in segmentation_sets:
                 segmentation_set_path = os.path.join("analysis_files", "features",
                                                      "{}_INC_{}_DEV_{}".format(segmentation_set,
-                                                                               incompleteness * 100, deviation))
+                                                                               0, deviation))
                 if not os.path.exists(segmentation_set_path):
                     os.mkdir(segmentation_set_path)
                 segmentations = os.listdir(os.path.join("analysis_files", "segmentations", segmentation_set))
@@ -238,11 +237,47 @@ def create_modified_features(segmentation_sets=None, distribution_sets=None,
 
                             distribution_path = os.path.join(distribution_set_path,
                                                              "distribution_{}".format(distribution.split(".")[0]))
-                            sampling.generate_modified_features(distribution_elements,
-                                                                segmentation_loaded,
-                                                                distribution_path, size,
-                                                                incompleteness,
-                                                                deviation)
+                            sampling.generate_features_with_deviation(distribution_elements,
+                                                                      segmentation_loaded,
+                                                                      distribution_path, size,
+                                                                      deviation)
+    else:
+        for incompleteness in incompleteness_set:
+            for segmentation_set in segmentation_sets:
+                segmentation_set_path = os.path.join("analysis_files", "features",
+                                                     "{}_INC_{}_DEV_{}".format(segmentation_set,
+                                                                               incompleteness * 100, 0))
+                if not os.path.exists(segmentation_set_path):
+                    os.mkdir(segmentation_set_path)
+                segmentations = os.listdir(os.path.join("analysis_files", "segmentations", segmentation_set))
+
+                for segmentation in segmentations:
+                    segmentation_loaded = np.load(os.path.join("analysis_files", "segmentations",
+                                                               segmentation_set, segmentation))
+                    length = max(segmentation_loaded[:, 0]) + 1
+                    width = max(segmentation_loaded[:, 1]) + 1
+                    height = max(segmentation_loaded[:, 2]) + 1
+                    size = int(length), int(width), int(height)
+
+                    segmentation_path = os.path.join(segmentation_set_path,
+                                                     "segmentation_{}".format(segmentation.split(".")[0]))
+                    os.mkdir(segmentation_path)
+
+                    for distribution_set in distribution_sets:
+                        distribution_set_path = os.path.join(segmentation_path, distribution_set)
+                        os.mkdir(distribution_set_path)
+                        distributions = os.listdir(os.path.join("analysis_files", "distributions", distribution_set))
+
+                        for distribution in distributions:
+                            distribution_elements = np.load(os.path.join("analysis_files", "distributions",
+                                                                         distribution_set, distribution))
+
+                            distribution_path = os.path.join(distribution_set_path,
+                                                             "distribution_{}".format(distribution.split(".")[0]))
+                            sampling.generate_features_with_incompleteness(distribution_elements,
+                                                                           segmentation_loaded,
+                                                                           distribution_path, size,
+                                                                           incompleteness)
 
 
 def show_features(segmentation_sets, distribution_sets):
