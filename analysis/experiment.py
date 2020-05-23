@@ -72,13 +72,14 @@ def create_segmentations(env, segmentation_sets=None):
                 sampling.cuboid_segmentation(file_path, environment, cls, val, save=True)
 
 
-def show_segmentation(segmentation_sets=None):
+def show_segmentation(environment, segmentation_sets=None):
     if segmentation_sets is None:
         segmentation_sets = \
             [x for x in os.listdir(os.path.join("analysis_files", "segmentations")) if not x.endswith(".json")]
+    env_path = os.path.join("analysis_files", "environments", "{}.json".format(environment))
     for segmentation_set in segmentation_sets:
         segmentation_set_path = os.path.join("analysis_files", "segmentations", segmentation_set)
-        visualize.visualize_segmentations(segmentation_set_path, segmentation_set)
+        visualize.visualize_segmentations(env_path, segmentation_set_path, segmentation_set)
 
 
 def draw_samples(segmentation_sets=None, distribution_sets=None):

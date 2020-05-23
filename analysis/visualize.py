@@ -65,16 +65,15 @@ def visualize_distributions(environment_path, distributions_path, name):
                 y=y.flatten(),
                 z=z.flatten(),
                 value=norm_values,
-                # isomin=-0.1,
-                # isomax=0.8,
                 opacity=0.1,
-                surface_count=21,
+                surface_count=21
             ),
             row=row,
             col=col
         )
     fig.update_layout(
-        title="Distributions '{}'".format(name),
+        height=500 * rows,
+        title="<b>Distributions '{}' in Environment '{}'</b>".format(name, environment_path.split("/")[-1].split(".")[0]),
         font=dict(
             family="Courier New, monospace",
             size=14,
@@ -84,11 +83,22 @@ def visualize_distributions(environment_path, distributions_path, name):
     fig.show()
 
 
-def visualize_segmentations(path, name):
+def sorting(element):
+    return int(element.split("_")[0]) * int(element.split("_")[1]) * int(element.split("_")[2].split(".")[0])
+
+
+def visualize_segmentations(env_path, path, name):
     segmentations = os.listdir(path)
-    segmentations.sort()
+    segmentations.sort(key=sorting)
 
     no_segmentations = len(segmentations)
+
+    with open(env_path, "r+") as env_file:
+        environment = json.load(env_file)
+
+    length = environment["params"]["length"]
+    width = environment["params"]["width"]
+    height = environment["params"]["height"]
 
     if no_segmentations < 5:
         rows = 1
@@ -101,7 +111,7 @@ def visualize_segmentations(path, name):
 
     fig = make_subplots(
         rows=rows, cols=cols,
-        subplot_titles=["Segmentation {}".format(x) for x in range(1, no_segmentations + 1)],
+        subplot_titles=["Segmentation '{}'".format(x.split(".")[0]) for x in segmentations],
         specs=specs,
         vertical_spacing=0.07
     )
@@ -119,14 +129,26 @@ def visualize_segmentations(path, name):
                 name=str(index),
                 marker=dict(
                     size=1,
-                    opacity=0.8
+                    opacity=0.8,
+                    color="blue"
                 )
             ),
             row=row,
             col=col
         )
+    scene = dict(
+        xaxis=dict(
+            range=[0, length]
+        ),
+        yaxis=dict(
+            range=[0, width]
+        ),
+        zaxis=dict(
+            range=[0, height]
+        )
+    )
     fig.update_layout(
-        title="Segmentations '{}'".format(name),
+        title="<b>Segmentations '{}'</b>".format(name),
         font=dict(
             family="Courier New, monospace",
             size=14,
@@ -134,6 +156,17 @@ def visualize_segmentations(path, name):
         ),
         showlegend=False
     )
+    layout_dict = {}
+    for i in range(len(segmentations)):
+        if i > 0:
+            layout_dict["scene{}".format(i + 1)] = scene
+            layout_dict["scene{}_aspectmode".format(i + 1)] = "manual"
+            layout_dict["scene{}_aspectratio".format(i + 1)] = dict(x=1, y=width/length, z=height/length)
+        else:
+            layout_dict["scene"] = scene
+            layout_dict["scene_aspectmode"] = "manual"
+            layout_dict["scene_aspectratio"] = dict(x=1, y=width / length, z=height / length)
+    fig.update_layout(layout_dict)
     fig.show()
 
 
@@ -507,9 +540,6 @@ def visualize_feature_accuracies(paths):
         shared_xaxes=True
     )
 
-    def sorting(element):
-        return int(element.split("_")[0])
-
     for index, path in enumerate(paths):
         row = index + 1
         col = 1
@@ -579,7 +609,7 @@ def visualize_one_modification_influence(results_csv, modification, unmodified):
                         y=df.query(
                             "classifier=='{}' and "
                             "distribution_set=='{}' and "
-                            "segmentation=='{}' and"
+                            "segmentation=='{}' and "
                             "{}=='{}'"
                             "{}=='{}'".format(classifier, distribution_set, segmentation,
                                               unmodified[0][0], unmodified[0][1],
@@ -619,52 +649,141 @@ def visualize_two_modifications_influence(results_csv, modification_one, modific
     classifiers = df["classifier"].unique().tolist()
 
     for classifier in classifiers:
-        colors = ["black", "indianred", "blue", "plum"]
         rows = 4
         cols = 4
         specs = [[{'type': 'surface'} for _ in range(cols)] for _ in range(rows)]
         fig = make_subplots(
             rows=rows, cols=cols,
             specs=specs,
-            subplot_titles=["Distributions Set<br>'{}'".format(x.split("/")[-1]) for x in distribution_sets],
-            vertical_spacing=0.07
+            x_title="<b>Distribution Sets</b>",
+            y_title="<b>Segmentations</b>",
+            column_titles=distribution_sets,
+            row_titles=segmentations,
+            # subplot_titles=["Distributions Set <b>'{}'</b><br>Segmentation <b>'{}'</b>".format(dist, seg)
+            #                 for dist in distribution_sets for seg in segmentations],
+            vertical_spacing=0.005
         )
         for index_dist, distribution_set in enumerate(distribution_sets):
             for index_seg, segmentation in enumerate(segmentations):
-                if index_dist > 0:
-                    show = False
-                else:
-                    show = True
+                z = []
+                for one in modifier_one:
+                    z.append(
+                        df.query(
+                            "classifier=='{}' and "
+                            "distribution_set=='{}' and "
+                            "segmentation=='{}' and "
+                            "{}=='{}' and "
+                            "{}=='{}'".format(classifier, distribution_set, segmentation,
+                                              unmodified[0], unmodified[1],
+                                              modification_one, one)
+                        )["accuracy"]
+                    )
+                z = np.array(z)
                 fig.add_trace(
                     go.Surface(
                         x=modifier_one,
                         y=modifier_two,
-                        z=df.query(
-                            "classifier=='{}' and "
-                            "distribution_set=='{}' and "
-                            "segmentation=='{}' and"
-                            "{}=='{}'".format(classifier, distribution_set, segmentation,
-                                              unmodified[0], unmodified[1])
-                        )["accuracy"],
-                        name="Segmentation '{}'".format(segmentation),
-                        showlegend=show
+                        z=z,
+                        colorscale="Viridis",
+                        coloraxis="coloraxis"
                     ),
                     row=index_seg + 1,
                     col=index_dist + 1
                 )
-
+        scene = dict(
+                xaxis=dict(
+                    title_text="<b>{}</b>".format(modification_one),
+                    title_font={"size": 12},
+                    # range=[modifier_one[0] - ((modifier_one[-1] - modifier_one[0]) / 10),
+                    #        modifier_one[-1] + ((modifier_one[-1] - modifier_one[0]) / 10)],
+                    tickmode="array",
+                    tickvals=modifier_one,
+                    tickfont=dict(
+                        size=12,
+                        family="Courier New, monospace",
+                    )
+                ),
+                yaxis=dict(
+                    title_text="<b>{}</b>".format(modification_two),
+                    title_font={"size": 12},
+                    # range=[modifier_two[0] - ((modifier_two[-1] - modifier_two[0]) / 10),
+                    #        modifier_two[-1] + ((modifier_two[-1] - modifier_two[0]) / 10)],
+                    tickmode="array",
+                    tickvals=modifier_two,
+                    tickfont=dict(
+                        size=12,
+                        family="Courier New, monospace",
+                    ),
+                ),
+                zaxis=dict(
+                    title_text="<b>accuracy</b>",
+                    title_font={"size": 12},
+                    range=[0, 1.2],
+                    tickmode="array",
+                    tickvals=[0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2],
+                    tickfont=dict(
+                        size=12,
+                        family="Courier New, monospace",
+                    ),
+                )
+            )
+        camera = dict(
+            eye=dict(x=1.85, y=1.85, z=1.85)
+        )
         fig.update_layout(
-            title="Comparison for Different Amount of Training Data for Classifier '{}'".format(classifier),
-            xaxis_title="",
-            yaxis_title="",
+            height=1800,
+            width=1800,
+            xaxis_title=modification_one,
+            yaxis_title=modification_two,
             font=dict(
                 family="Courier New, monospace",
                 size=18,
                 color="#7f7f7f"
-            )
+            ),
+            scene=scene,
+            scene2=scene,
+            scene3=scene,
+            scene4=scene,
+            scene5=scene,
+            scene6=scene,
+            scene7=scene,
+            scene8=scene,
+            scene9=scene,
+            scene10=scene,
+            scene11=scene,
+            scene12=scene,
+            scene13=scene,
+            scene14=scene,
+            scene15=scene,
+            scene16=scene,
+            scene_camera=camera,
+            scene2_camera=camera,
+            scene3_camera=camera,
+            scene4_camera=camera,
+            scene5_camera=camera,
+            scene6_camera=camera,
+            scene7_camera=camera,
+            scene8_camera=camera,
+            scene9_camera=camera,
+            scene10_camera=camera,
+            scene11_camera=camera,
+            scene12_camera=camera,
+            scene13_camera=camera,
+            scene14_camera=camera,
+            scene15_camera=camera,
+            scene16_camera=camera,
+            coloraxis=dict(colorscale='Viridis', cmin=0.0, cmax=1.0),
+            showlegend=False
         )
-        fig.update_yaxes(
-            range=[0.0, 1.2]
+        fig.update_layout(
+            title=dict(
+                text="<b>Accuracy Comparison for Varying '{}' and '{}' "
+                     "with '{}' - '{}' and Classifier '{}'</b>".format(modification_one, modification_two,
+                                                                       unmodified[0], unmodified[1], classifier),
+                yref="paper",
+                yanchor="top",
+                font={"size": 20}
+            )
         )
         fig.show()
 

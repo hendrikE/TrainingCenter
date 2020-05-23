@@ -18,6 +18,70 @@ def calc_feature_values(array, percentages):
     return values
 
 
+def turn_coordinates_into_grid(coordinates, values, size):
+    grid = np.empty((size[0], size[1], size[2]))
+    grid[:, :, :] = np.NaN
+    for index, s in enumerate(coordinates):
+        l, w, h = s
+        grid[int(l), int(w), int(h)] = values[index]
+    return grid
+
+
+def clean_up_incompleteness(grid, size):
+    replacement = [
+        [-1, 0, 0],
+        [-1, 1, 0],
+        [-1, 1, 1],
+        [0, 1, 0],
+        [0, 1, 1],
+        [1, 0, 0],
+        [1, 1, 0],
+        [1, 1, 1]
+    ]
+    empty_indices = np.argwhere(np.isnan(grid)).tolist()
+    if empty_indices:
+        for empty_index in empty_indices:
+            empty_index_replacements = []
+            for x in replacement:
+                if empty_index[0] + x[0] in range(size[0]) and empty_index[1] + x[1] in range(size[1]) and \
+                        empty_index[2] + x[2] in range(size[2]):
+                    val = grid[empty_index[0] + x[0], empty_index[1] + x[1], empty_index[2] + x[2]]
+                    if not np.isnan(val):
+                        empty_index_replacements.append(val)
+            if empty_index_replacements:
+                grid[empty_index[0], empty_index[1], empty_index[2]] = np.mean(empty_index_replacements)
+            else:
+                grid[empty_index[0], empty_index[1], empty_index[2]] = 0
+    return grid
+
+
+def turn_grid_into_features(grid, size):
+    features = []
+
+    x_dist = np.sum(grid, axis=(1, 2))
+    if size[0] > 1:
+        x_cdf = np.array([np.sum(x_dist[:i + 1]) for i in range(x_dist.shape[0])])
+        features.append(calc_feature_values(x_cdf, [0.1, 0.25, 0.5, 0.75, 0.9]))
+    else:
+        features.append([x_dist[0] for _ in range(5)])
+
+    y_dist = np.sum(grid, axis=(0, 2))
+    if size[1] > 1:
+        y_cdf = np.array([np.sum(y_dist[:i + 1]) for i in range(y_dist.shape[0])])
+        features.append(calc_feature_values(y_cdf, [0.1, 0.25, 0.5, 0.75, 0.9]))
+    else:
+        features.append([y_dist[0] for _ in range(5)])
+
+    z_dist = np.sum(grid, axis=(0, 1))
+    if size[2] > 1:
+        z_cdf = np.array([np.sum(z_dist[:i + 1]) for i in range(z_dist.shape[0])])
+        features.append(calc_feature_values(z_cdf, [0.1, 0.25, 0.5, 0.75, 0.9]))
+    else:
+        features.append([z_dist[0] for _ in range(5)])
+
+    return np.array(features).flatten()
+
+
 def convert_results_to_csv(result_dirs, name):
     columns = ["segmentation_set", "segmentation", "distribution_set", "training_split",
                "incompleteness", "deviation", "classifier", "accuracy"]
