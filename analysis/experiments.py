@@ -1,78 +1,81 @@
-# TODO: create an experimental setup that samples data with different parameters, train on it and compare results
-# standard python libraries
 import os
 import json
 import pickle
 
-# installed python libraries
 import numpy as np
 
-# parts of TrainingCenter
-from analysis import sampling, training, visualize
-
-
-def showcase_example():
-    pass
+from analysis import sampling, training, visualize, features
 
 
 def create_class_distributions(distribution_sets=None, size=500):
     """
-    This function creates for existing distribution parameters different distribution classes
-    :param distribution_sets: Which distribution set to create classes for, leave None if all should be used
-    :param size: How many distributions per class
+    Function to create distributions belonging to different classes for different distribution sets
+    :param distribution_sets: List of JSON file names containing the different distribution set specifications
+    :param size: Number of distributions per class to be created
     :return:
     """
     if distribution_sets is None:
         distribution_sets = \
-            [x for x in os.listdir(os.path.join("analysis_files", "distributions")) if x.endswith(".json")]
+            [x.split(".")[0] for x in os.listdir(os.path.join("analysis_files", "distributions"))
+             if x.endswith(".json")]
     for distribution_set in distribution_sets:
-        with open(os.path.join("analysis_files", "distributions", distribution_set), "r+") as class_file:
+        with open(os.path.join("analysis_files", "distributions", "{}.json".format(distribution_set)), "r+") as class_file:
             classes = json.load(class_file)
-        file_path = os.path.join("analysis_files", "distributions", distribution_set.split(".")[0])
+        file_path = os.path.join("analysis_files", "distributions", distribution_set)
         os.mkdir(file_path)
         for cls, val in classes.items():
-            sampling.create_distributions(file_path, cls, val, size=size, save=True)
+            sampling.create_distributions(val, size=size, save=True, file_path=file_path, dist_class=cls)
 
 
 def show_distributions(env, distribution_sets=None):
+    """
+    Function to visualize the different distribution sets with their respective classes
+    :param env: JSON file name containing information on the environment
+    :param distribution_sets: List of JSON file names containing the different distribution set specifications
+    :return:
+    """
     if distribution_sets is None:
         distribution_sets = \
-            [x for x in os.listdir(os.path.join("analysis_files", "distributions")) if x.endswith(".json")]
+            [x.split(".")[0] for x in os.listdir(os.path.join("analysis_files", "distributions"))
+             if x.endswith(".json")]
     env_path = os.path.join("analysis_files", "environments", "{}.json".format(env))
     for distribution_set in distribution_sets:
         distribution_set_path = os.path.join("analysis_files", "distributions", "{}.json".format(distribution_set))
         visualize.visualize_distributions(env_path, distribution_set_path, distribution_set)
 
 
-def create_time_series_distributions():
-    pass
-
-
 def create_segmentations(env, segmentation_sets=None):
     """
-    Create segmentations consisting of positions and coordinates based on existing parameters
-    :param env: The environment which should be segmented
-    :param segmentation_sets: Which segmentations to use
+    Function to create segmentations of a given environment
+    :param env: JSON file name containing information on the environment
+    :param segmentation_sets: List of JSON file names containing the different segmentation set specifications
     :return:
     """
     if segmentation_sets is None:
         segmentation_sets = \
-            [x for x in os.listdir(os.path.join("analysis_files", "segmentations")) if x.endswith(".json")]
+            [x.split(".")[0] for x in os.listdir(os.path.join("analysis_files", "segmentations")) if x.endswith(".json")]
     with open(os.path.join("analysis_files", "environments", "{}.json".format(env)), "r+") as env_file:
         environment = json.load(env_file)
     if environment["basic_shape"] == "cuboid":
-        for el in segmentation_sets:
-            with open(os.path.join("analysis_files", "segmentations", el), "r+") as seg_file:
+        for segmentation_set in segmentation_sets:
+            with open(os.path.join("analysis_files", "segmentations", "{}.json".format(segmentation_set)), "r+") as seg_file:
                 segmentations = json.load(seg_file)
             file_path = os.path.join("analysis_files",
                                      "segmentations",
-                                     "{}_ENV_{}".format(el.split(".")[0], env))
+                                     "{}_ENV_{}".format(segmentation_set, env))
             os.mkdir(file_path)
             for cls, val in segmentations.items():
-                sampling.cuboid_segmentation(file_path, environment, cls, val, save=True)
+                sampling.create_cuboid_segmentation(environment, val,
+                                                    save=True, file_path=file_path, segmentation_class=cls)
 
 
 def show_segmentation(environment, segmentation_sets=None):
+    """
+    Function to visualize the different segmentation sets
+    :param environment: JSON file name containing information on the environment
+    :param segmentation_sets: List of the directories, where the segmentation sets have been saved after creation
+    :return:
+    """
     if segmentation_sets is None:
         segmentation_sets = \
             [x for x in os.listdir(os.path.join("analysis_files", "segmentations")) if not x.endswith(".json")]
@@ -82,70 +85,13 @@ def show_segmentation(environment, segmentation_sets=None):
         visualize.visualize_segmentations(env_path, segmentation_set_path, segmentation_set)
 
 
-def draw_samples(segmentation_sets=None, distribution_sets=None):
-    """
-    This function allows to draw samples from distributions based on given segmentations.
-    :param segmentation_sets: A list of segmentation sets that should be used, leave None if all should be used
-    :param distribution_sets: A list of distribution sets that should be used, leave None if all should be used
-    :return:
-    """
-    if segmentation_sets is None:
-        segmentation_sets = \
-            [x for x in os.listdir(os.path.join("analysis_files", "segmentations")) if not x.endswith(".json")]
-    if distribution_sets is None:
-        distribution_sets = \
-            [x for x in os.listdir(os.path.join("analysis_files", "distributions")) if not x.endswith(".json")]
-
-    for segmentation_set in segmentation_sets:
-        segmentation_set_path = os.path.join("analysis_files", "samples", segmentation_set)
-        os.mkdir(segmentation_set_path)
-        segmentations = os.listdir(os.path.join("analysis_files", "segmentations", segmentation_set))
-
-        for distribution_set in distribution_sets:
-            distribution_set_path = os.path.join(segmentation_set_path, distribution_set)
-            os.mkdir(distribution_set_path)
-            distributions = os.listdir(os.path.join("analysis_files", "distributions", distribution_set))
-
-            for segmentation in segmentations:
-                segmentation_loaded = np.load(os.path.join("analysis_files", "segmentations",
-                                                           segmentation_set, segmentation))
-                length = max(segmentation_loaded[:, 0]) + 1
-                width = max(segmentation_loaded[:, 1]) + 1
-                height = max(segmentation_loaded[:, 2]) + 1
-                size = int(length), int(width), int(height)
-
-                segmentation_path = os.path.join(distribution_set_path,
-                                                 "segmentation_{}".format(segmentation.split(".")[0]))
-                os.mkdir(segmentation_path)
-
-                for distribution in distributions:
-                    distribution_elements = np.load(os.path.join("analysis_files", "distributions",
-                                                                 distribution_set, distribution))
-
-                    distribution_path = os.path.join(segmentation_path,
-                                                     "distribution_{}".format(distribution.split(".")[0]))
-                    os.mkdir(distribution_path)
-
-                    for index, element in enumerate(distribution_elements):
-                        element_path = os.path.join(distribution_path, str(index))
-                        sampling.draw_sample(element, segmentation_loaded, element_path, size)
-
-
-def show_overlay():
-    pass
-
-
-def show_samples():
-    pass
-
-
 def create_features(segmentation_sets=None, distribution_sets=None):
     """
-        This function allows to create features from distributions based on given segmentations.
-        :param segmentation_sets: A list of segmentation sets that should be used, leave None if all should be used
-        :param distribution_sets: A list of distribution sets that should be used, leave None if all should be used
-        :return:
-        """
+    Function to create features from distributions based on given segmentations
+    :param segmentation_sets: A list of segmentation set directories
+    :param distribution_sets: A list of distribution set directories
+    :return:
+    """
     if segmentation_sets is None:
         segmentation_sets = \
             [x for x in os.listdir(os.path.join("analysis_files", "segmentations")) if not x.endswith(".json")]
@@ -182,19 +128,20 @@ def create_features(segmentation_sets=None, distribution_sets=None):
 
                     distribution_path = os.path.join(distribution_set_path,
                                                      "distribution_{}".format(distribution.split(".")[0]))
-                    sampling.generate_features(distribution_elements, segmentation_loaded, distribution_path, size)
+                    features.generate_features(distribution_elements, segmentation_loaded, size,
+                                               save=True, path=distribution_path)
 
 
 def create_modified_features(segmentation_sets=None, distribution_sets=None,
                              deviation_set=None, incompleteness_set=None):
     """
-        This function allows to create features from distributions based on given segmentations.
-        :param incompleteness_set: The probability for each data point to be missing
-        :param deviation_set: The variance by which the data points are supposed to deviate from basic segmentation
-        :param segmentation_sets: A list of segmentation sets that should be used, leave None if all should be used
-        :param distribution_sets: A list of distribution sets that should be used, leave None if all should be used
-        :return:
-        """
+    Function to create features from distributions based on given segmentations with modifications
+    :param incompleteness_set: List with probabilities for each data point to be missing
+    :param deviation_set: List of variances by which the data points are supposed to deviate from basic segmentation
+    :param segmentation_sets: A list of segmentation set directories
+    :param distribution_sets: A list of distribution set directories
+    :return:
+    """
     assert (deviation_set is not None or incompleteness_set is not None) and \
            (deviation_set is None or incompleteness_set is None), "Either Deviation or Incompleteness should be given"
 
@@ -238,10 +185,10 @@ def create_modified_features(segmentation_sets=None, distribution_sets=None,
 
                             distribution_path = os.path.join(distribution_set_path,
                                                              "distribution_{}".format(distribution.split(".")[0]))
-                            sampling.generate_features_with_deviation(distribution_elements,
-                                                                      segmentation_loaded,
-                                                                      distribution_path, size,
-                                                                      deviation)
+                            features.generate_features_with_deviation(distribution_elements,
+                                                                      segmentation_loaded, size,
+                                                                      deviation,
+                                                                      save=True, path=distribution_path)
     else:
         for incompleteness in incompleteness_set:
             for segmentation_set in segmentation_sets:
@@ -275,13 +222,21 @@ def create_modified_features(segmentation_sets=None, distribution_sets=None,
 
                             distribution_path = os.path.join(distribution_set_path,
                                                              "distribution_{}".format(distribution.split(".")[0]))
-                            sampling.generate_features_with_incompleteness(distribution_elements,
-                                                                           segmentation_loaded,
-                                                                           distribution_path, size,
-                                                                           incompleteness)
+                            features.generate_features_with_incompleteness(distribution_elements,
+                                                                           segmentation_loaded, size,
+                                                                           incompleteness,
+                                                                           save=True, path=distribution_path)
 
 
-def show_features(segmentation_sets, distribution_sets):
+def show_features(environment, segmentation_sets, distribution_sets):
+    """
+    Function to create visualizations for different segmentation and distribution sets
+    :param environment: JSON file name containing information on the environment
+    :param segmentation_sets: A list of segmentation set directories
+    :param distribution_sets: A list of JSON file names containing the distribution set specifications
+    :return:
+    """
+    env_path = os.path.join("analysis_files", "environments", "{}.json".format(environment))
     for segmentation_set in segmentation_sets:
         segmentation_set_path = os.path.join("analysis_files", "segmentations", segmentation_set)
         for segmentation in os.listdir(segmentation_set_path):
@@ -297,71 +252,20 @@ def show_features(segmentation_sets, distribution_sets):
                                                      "{}.json".format(distribution_set))
                 with open(distribution_set_path, "r+") as distribution_file:
                     distribution_set_loaded = json.load(distribution_file)
-                distributions = [[((x[0] + x[1]) / 2) for x in val] for val in distribution_set_loaded.values()]
+                distributions = [([((x[0] + x[1]) / 2) for x in val], key)
+                                 for key, val in distribution_set_loaded.items()]
                 for distribution in distributions:
-                    visualize.visualize_feature_creation(distribution, segmentation_loaded, size)
-
-
-def run_training(sampling_on_the_fly, segmentation_sets=None, distribution_sets=None):
-    """
-    This function allows to train a model for contamination detection.
-    :param sampling_on_the_fly: True, if artificial data should be used and sampled during training (as opposed to
-    using already existing samples)
-    :param segmentation_sets: Which segmentation sets should be used, leave None if all should be used
-    :param distribution_sets: Which distribution sets should be used, leave None if all should be used
-    :return:
-    """
-    if segmentation_sets is None:
-        segmentation_sets = \
-            [x for x in os.listdir(os.path.join("analysis_files", "segmentations")) if not x.endswith(".json")]
-    if distribution_sets is None:
-        distribution_sets = \
-            [x for x in os.listdir(os.path.join("analysis_files", "distributions")) if not x.endswith(".json")]
-
-    for segmentation_set in segmentation_sets:
-        segmentation_set_path = os.path.join("analysis_files", "results", segmentation_set)
-        os.mkdir(segmentation_set_path)
-        segmentations = os.listdir(os.path.join("analysis_files", "segmentations", segmentation_set))
-        segmentations.sort()
-
-        for distribution_set in distribution_sets:
-            distribution_set_path = os.path.join(segmentation_set_path, distribution_set)
-            os.mkdir(distribution_set_path)
-
-            if sampling_on_the_fly:
-                accuracies = {}
-                for segmentation in segmentations:
-                    segmentation_loaded = np.load(os.path.join("analysis_files", "segmentations",
-                                                               segmentation_set, segmentation))
-                    segmentation_path = os.path.join(distribution_set_path,
-                                                     "segmentation_{}".format(segmentation.split(".")[0]))
-                    os.mkdir(segmentation_path)
-                    segmentation_name = segmentation.split(".")[0]
-                    accuracy = training.train_with_sampling_on_the_fly(
-                        segmentation_loaded,
-                        segmentation_path,
-                        distribution_set
-                    )
-                    accuracies[segmentation_name] = accuracy
-
-                with open(os.path.join(distribution_set_path, "accuracies"), "wb") as acc_file:
-                    pickle.dump(accuracies, acc_file)
-
-            else:
-                # TODO implement training with already drawn samples
-                pass
-
-
-def show_training_results():
-    pass
+                    visualize.visualize_feature_creation(distribution_set, distribution[1], distribution[0],
+                                                         segmentation_set, segmentation.split(".")[0],
+                                                         segmentation_loaded, size, env_path)
 
 
 def run_feature_training(segmentation_sets=None, distribution_sets=None, cls_set="basic"):
     """
-    This function allows to train a model for contamination detection based on pre-generated features.
-    :param segmentation_sets: Which segmentation sets should be used, leave None if all should be used
-    :param distribution_sets: Which distribution sets should be used, leave None if all should be used
-    :param cls_set: Which set of classifiers to use for training
+    Function to train a model for classification with multiple segmentation and distribution sets
+    :param segmentation_sets: A list of segmentation set directories
+    :param distribution_sets: A list of distribution set directories
+    :param cls_set: List of classifiers, or name of a single classifier
     :return:
     """
     if segmentation_sets is None:
@@ -401,10 +305,32 @@ def run_feature_training(segmentation_sets=None, distribution_sets=None, cls_set
                 pickle.dump(accuracies, acc_file)
 
 
+def show_feature_training_results(segmentation_sets=None):
+    """
+    Function to show the results of training on basic data
+    :param segmentation_sets: A list of segmentation set directories
+    :return:
+    """
+    for segmentation_set in segmentation_sets:
+        path = os.path.join("analysis_files", "feature_results", segmentation_set)
+        distribution_sets = os.listdir(path)
+        visualize.visualize_feature_accuracies([os.path.join(path, dist_set) for dist_set in distribution_sets])
+
+
 def run_feature_training_with_variations(segmentation_sets=None, single_segmentations=None,
                                          distribution_sets=None,
                                          cls_set="basic", train_splits=None,
                                          save_confusion_matrices=False):
+    """
+    Function to train a model for classification with multiple segmentation and distribution sets with variables
+    :param segmentation_sets: A list of segmentation set directories as they can be found in the "features" directory
+    :param single_segmentations: A list of lists containing single segmentations from each segmentation set
+    :param distribution_sets: A list of distribution set directories
+    :param cls_set: List of classifiers, or name of a single classifier
+    :param train_splits: List of percentages of much of the data is to be used for training
+    :param save_confusion_matrices: True if matrices should be saved
+    :return:
+    """
     if train_splits is None:
         train_splits = [90]
 
@@ -455,8 +381,25 @@ def run_feature_training_with_variations(segmentation_sets=None, single_segmenta
                     pickle.dump(accuracies, acc_file)
 
 
-def show_feature_training_results(segmentation_sets=None):
-    for segmentation_set in segmentation_sets:
-        path = os.path.join("analysis_files", "feature_results", segmentation_set)
-        distribution_sets = os.listdir(path)
-        visualize.visualize_feature_accuracies([os.path.join(path, dist_set) for dist_set in distribution_sets])
+def test_duration_feature_training():
+    """
+    Function to compare training duration for different classifiers on the given data
+    :return:
+    """
+    distribution_sets = ["combined_classes", "orientation_classes", "position_classes", "shape_classes"]
+
+    for distribution_set in distribution_sets:
+        print(">>> Training on Distribution Set {}".format(distribution_set))
+        feature_path = os.path.join("analysis_files", "features",
+                                    "basic_cuboid_ENV_basic_INC_0_DEV_0",
+                                    "segmentation_5_5_5",
+                                    distribution_set)
+        training.feature_training_duration(feature_path)
+
+
+def train_and_save_model():
+    feature_path = os.path.join("analysis_files", "features", "basic_cuboid_ENV_basic_INC_0_DEV_0",
+                                "segmentation_5_5_5", "combined_classes")
+    model_path = "mock_setup"
+    classifier = "Nearest Neighbors"
+    training.train_and_save_model(feature_path, model_path, classifier)

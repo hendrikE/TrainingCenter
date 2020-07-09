@@ -6,6 +6,12 @@ import pandas as pd
 
 
 def calc_feature_values(array, percentages):
+    """
+    Function to calculate features from a cumulated distribution
+    :param array: Distribution as a list of values
+    :param percentages: List of percentages for which feature values will be calculated
+    :return:
+    """
     values = []
     max_val = array.max()
     for percentage in percentages:
@@ -19,6 +25,13 @@ def calc_feature_values(array, percentages):
 
 
 def turn_coordinates_into_grid(coordinates, values, size):
+    """
+    Function to transform an array of coordinates into a grid
+    :param coordinates: Array with positions where the values will be placed in the grid
+    :param values: Values which are drawn from a distribution
+    :param size: Size the grid should have; Tuple of numbers with number of segments in X, Y and Z dimension
+    :return:
+    """
     grid = np.empty((size[0], size[1], size[2]))
     grid[:, :, :] = np.NaN
     for index, s in enumerate(coordinates):
@@ -28,6 +41,12 @@ def turn_coordinates_into_grid(coordinates, values, size):
 
 
 def clean_up_incompleteness(grid, size):
+    """
+    Function to fill up missing values in a grid
+    :param grid: Array grid filled with values
+    :param size: Tuple with the size of the grid in X, Y and Z dimension
+    :return:
+    """
     replacement = [
         [-1, 0, 0],
         [-1, 1, 0],
@@ -56,6 +75,12 @@ def clean_up_incompleteness(grid, size):
 
 
 def turn_grid_into_features(grid, size):
+    """
+    Function to create features from a grid with measurements
+    :param grid: Array grid filled with values
+    :param size: Tuple with the size of the grid in X, Y and Z dimension
+    :return:
+    """
     features = []
 
     x_dist = np.sum(grid, axis=(1, 2))
@@ -83,6 +108,12 @@ def turn_grid_into_features(grid, size):
 
 
 def convert_results_to_csv(result_dirs, name):
+    """
+    Function to turn the results from different trainings into one csv file for visualization
+    :param result_dirs: List of all directories, which pickle files with accuracies will be used
+    :param name: Name of the CSV file
+    :return:
+    """
     columns = ["segmentation_set", "segmentation", "distribution_set", "training_split",
                "incompleteness", "deviation", "classifier", "accuracy"]
     data = []
@@ -104,5 +135,4 @@ def convert_results_to_csv(result_dirs, name):
                          deviation, classifier, accuracy]
                     )
     df = pd.DataFrame(columns=columns, data=data)
-    print(df)
     df.to_csv(os.path.join("analysis_files", "feature_results", "results_{}.csv".format(name)))
